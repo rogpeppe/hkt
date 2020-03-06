@@ -284,40 +284,6 @@ func decoderForType(typ string) (func(m json.RawMessage) ([]byte, error), error)
 
 var nullJSON = json.RawMessage("null")
 
-func encoderForType(typ string) (func([]byte) (json.RawMessage, error), error) {
-	var enc func([]byte) string
-	switch typ {
-	case "json":
-		return func(data []byte) (json.RawMessage, error) {
-			if err := json.Unmarshal(data, new(json.RawMessage)); err != nil {
-				return nil, fmt.Errorf("invalid JSON value %q: %v", data, err)
-			}
-			return json.RawMessage(data), nil
-		}, nil
-	case "hex":
-		enc = hex.EncodeToString
-	case "base64":
-		enc = base64.StdEncoding.EncodeToString
-	case "string":
-		enc = func(data []byte) string {
-			return string(data)
-		}
-	default:
-		return nil, fmt.Errorf(`unsupported decoder %#v, only json, string, hex and base64 are supported`, typ)
-	}
-	return func(data []byte) (json.RawMessage, error) {
-		if data == nil {
-			return nullJSON, nil
-		}
-		data1, err := json.Marshal(enc(data))
-		if err != nil {
-			// marshaling a string cannot fail but be defensive.
-			return nil, err
-		}
-		return json.RawMessage(data1), nil
-	}, nil
-}
-
 func min(x, y int64) int64 {
 	if x < y {
 		return x

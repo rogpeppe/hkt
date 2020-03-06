@@ -38,19 +38,19 @@ $ hkt topic -filter news -partitions
 <details><summary>Produce messages</summary>
 
 ```sh
-$ echo 'Alice wins Oscar' | kt produce -topic actor-news -literal
+$ echo 'Alice wins Oscar' | hkt produce -topic actor-news -literal
 {
   "count": 1,
   "partition": 0,
   "startOffset": 0
 }
-$ echo 'Bob wins Oscar' | kt produce -tlsca myca.pem -tlscert myclientcert.pem -tlscertkey mycertkey.pem -topic actor-news -literal
+$ echo 'Bob wins Oscar' | hkt produce -tlsca myca.pem -tlscert myclientcert.pem -tlscertkey mycertkey.pem -topic actor-news -literal
 {
   "count": 1,
   "partition": 0,
   "startOffset": 0
 }
-$ for i in {6..9} ; do echo Bourne sequel $i in production. | kt produce -topic actor-news -literal ;done
+$ for i in {6..9} ; do echo Bourne sequel $i in production. | hkt produce -topic actor-news -literal ;done
 {
   "count": 1,
   "partition": 0,

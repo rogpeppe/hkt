@@ -280,21 +280,21 @@ Examples:
 
 Send a single message with a specific key:
 
-  $ echo '{"key": "id-23", "value": "ola", "partition": 0}' | kt produce -topic greetings
+  $ echo '{"key": "id-23", "value": "ola", "partition": 0}' | hkt produce -topic greetings
   Sent message to partition 0 at offset 3.
 
-  $ kt consume -topic greetings -timeout 1s -offsets 0:3-
+  $ hkt consume -topic greetings -timeout 1s -offsets 0:3-
   {"partition":0,"offset":3,"key":"id-23","message":"ola"}
 
 Keep reading input from stdin until interrupted (via ^C).
 
-  $ kt produce -topic greetings
+  $ hkt produce -topic greetings
   hello.
   Sent message to partition 0 at offset 4.
   bonjour.
   Sent message to partition 0 at offset 5.
 
-  $ kt consume -topic greetings -timeout 1s -offsets 0:4-
+  $ hkt consume -topic greetings -timeout 1s -offsets 0:4-
   {"partition":0,"offset":4,"key":"hello.","message":"hello."}
   {"partition":0,"offset":5,"key":"bonjour.","message":"bonjour."}
 `

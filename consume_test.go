@@ -1,13 +1,23 @@
 package main
 
 import (
+	"context"
+	"encoding/binary"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/Shopify/sarama"
 	qt "github.com/frankban/quicktest"
 	"github.com/google/go-cmp/cmp"
+	"github.com/heetch/avro"
+	"github.com/heetch/avro/avroregistry"
+	"gopkg.in/retry.v1"
 )
 
 func TestParseOffsets(t *testing.T) {
@@ -733,15 +743,19 @@ type tPartitionConsumer struct {
 }
 
 func (pc tPartitionConsumer) AsyncClose() {}
+
 func (pc tPartitionConsumer) Close() error {
 	return pc.closeErr
 }
+
 func (pc tPartitionConsumer) HighWaterMarkOffset() int64 {
 	return pc.highWaterMarkOffset
 }
+
 func (pc tPartitionConsumer) Messages() <-chan *sarama.ConsumerMessage {
 	return pc.messages
 }
+
 func (pc tPartitionConsumer) Errors() <-chan *sarama.ConsumerError {
 	return pc.errors
 }
@@ -783,12 +797,17 @@ func TestConsumeParseArgsUsesEnvVar(t *testing.T) {
 	c := qt.New(t)
 	defer c.Done()
 
-	c.Setenv("KT_BROKERS", "hans:2000")
+	registry := "localhost:8084"
+	broker := "hans:2000"
+
+	c.Setenv("KT_BROKERS", broker)
+	c.Setenv("KT_REGISTRY", registry)
 
 	cmd0, _, err := parseCmd("hkt", "consume")
 	c.Assert(err, qt.Equals, nil)
 	cmd := cmd0.(*consumeCmd)
-	c.Assert(cmd.brokers(), qt.DeepEquals, []string{"hans:2000"})
+	c.Assert(cmd.brokers(), qt.DeepEquals, []string{broker})
+	c.Assert(cmd.registryURL, qt.Equals, registry)
 }
 
 // brokers default to localhost:9092
@@ -797,23 +816,78 @@ func TestConsumeParseArgsDefault(t *testing.T) {
 	defer c.Done()
 
 	c.Setenv("KT_BROKERS", "")
+	c.Setenv("KT_REGISTRY", "")
+
 	cmd0, _, err := parseCmd("hkt", "consume")
 	c.Assert(err, qt.Equals, nil)
 	cmd := cmd0.(*consumeCmd)
 	c.Assert(cmd.brokers(), qt.DeepEquals, []string{"localhost:9092"})
+	c.Assert(cmd.registryURL, qt.Equals, "")
 }
 
 func TestConsumeParseArgsFlagsOverrideEnv(t *testing.T) {
 	c := qt.New(t)
 	defer c.Done()
 
+	registry := "localhost:8084"
+	broker := "hans:2000"
+
 	// command line arg wins
 	c.Setenv("KT_BROKERS", "BLABB")
+	c.Setenv("KT_REGISTRY", "BLABB")
 
-	cmd0, _, err := parseCmd("hkt", "consume", "-brokers", "hans:2000")
+	cmd0, _, err := parseCmd("hkt", "consume", "-brokers", broker, "-registry", registry)
 	c.Assert(err, qt.Equals, nil)
 	cmd := cmd0.(*consumeCmd)
-	c.Assert(cmd.brokers(), qt.DeepEquals, []string{"hans:2000"})
+	c.Assert(cmd.brokers(), qt.DeepEquals, []string{broker})
+	c.Assert(cmd.registryURL, qt.Equals, registry)
+}
+
+func TestConsumeAvroMessage(t *testing.T) {
+	c := qt.New(t)
+	defer c.Done()
+
+	type record struct {
+		A int
+		B int
+	}
+
+	// In the byte slice below:
+	//	80: A=40
+	//	40: B=20
+	rec := record{A: 40, B: 20}
+	data := []byte{80, 40}
+
+	_, wType, err := avro.Marshal(rec)
+	c.Assert(err, qt.IsNil)
+
+	reg := newTestRegistry(c)
+	schemaID := reg.register(c, wType)
+
+	cmd := consumeCmd{registry: reg.registry}
+
+	enc, err := cmd.encoderForType("string")
+	c.Assert(err, qt.IsNil)
+	cmd.encodeKey = enc
+
+	enc, err = cmd.encoderForType("avro")
+	c.Assert(err, qt.IsNil)
+	cmd.encodeValue = enc
+
+	msg := &sarama.ConsumerMessage{
+		Key:       []byte("foo"),
+		Value:     createAvroMessage(schemaID, data),
+		Partition: 1,
+		Offset:    0,
+	}
+
+	consumed, err := cmd.newConsumedMessage(msg)
+	c.Assert(err, qt.IsNil)
+
+	var got record
+	err = json.Unmarshal(consumed.Value, &got)
+	c.Assert(err, qt.IsNil)
+	c.Assert(got, qt.DeepEquals, rec)
 }
 
 func T(s string) time.Time {
@@ -844,4 +918,77 @@ func positionAtTime(t time.Time) position {
 	return position{
 		anchor: anchorAtTime(t),
 	}
+}
+
+type testRegistry struct {
+	registry *avroregistry.Registry
+	srv      *httptest.Server
+	faked    bool
+	schema   string
+	sub      string
+	url      string
+}
+
+func newTestRegistry(c *qt.C) *testRegistry {
+	ctx := context.Background()
+	reg := &testRegistry{
+		sub: randomString(10),
+		url: os.Getenv("KT_REGISTRY"),
+	}
+	// If KT_REGISTRY is not explicitly set, we use a fake server.
+	if reg.url == "" {
+		reg.faked = true
+		reg.srv = httptest.NewServer(http.HandlerFunc(reg.fakeServerHandler))
+		reg.url = reg.srv.URL
+	}
+	var err error
+	reg.registry, err = avroregistry.New(avroregistry.Params{
+		ServerURL:     reg.url,
+		RetryStrategy: retry.Regular{},
+	})
+	c.Assert(err, qt.IsNil)
+	c.Defer(func() {
+		err := reg.registry.DeleteSubject(ctx, reg.sub)
+		c.Check(err, qt.IsNil)
+		if reg.srv != nil {
+			reg.srv.Close()
+		}
+	})
+	return reg
+}
+
+func (reg *testRegistry) register(c *qt.C, schema *avro.Type) int64 {
+	if reg.faked {
+		reg.schema = schema.String()
+		return 1
+	}
+	id, err := reg.registry.Register(context.Background(), reg.sub, schema)
+	c.Assert(err, qt.IsNil)
+	return id
+}
+
+func (reg *testRegistry) fakeServerHandler(w http.ResponseWriter, r *http.Request) {
+	var body []byte
+	if r.Method == http.MethodGet && strings.HasPrefix(r.RequestURI, "/schemas/ids") {
+		var err error
+		body, err = json.Marshal(struct {
+			Schema string `json:"schema"`
+		}{reg.schema})
+		if err != nil {
+			panic(err)
+		}
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/vnd.schemaregistry.v1+json")
+	w.Write(body)
+}
+
+// createAvroMessage is a helper to create Avro message.
+// See https://docs.confluent.io/current/schema-registry/serializer-formatter.html#wire-format.
+func createAvroMessage(schemaID int64, data []byte) []byte {
+	b := []byte{0}        // magic byte
+	id := make([]byte, 4) // 4-byte schema id
+	binary.BigEndian.PutUint32(id, uint32(schemaID))
+	b = append(b, id...)
+	return append(b, data...)
 }

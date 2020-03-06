@@ -12,11 +12,11 @@ type command interface {
 	run(args []string) error
 }
 
-var usageMessage = `kt is a tool for Kafka.
+var usageMessage = `hkt is a tool for Kafka.
 
 Usage:
 
-	kt command [arguments]
+	hkt command [arguments]
 
 The commands are:
 
@@ -26,9 +26,9 @@ The commands are:
 	group      consumer group information and modification.
 	admin      basic cluster administration.
 
-Use "kt [command] -help" for for information about the command.
+Use "hkt [command] -help" for for information about the command.
 
-More at https://github.com/fgeller/kt
+More at https://github.com/heetch/hkt
 `
 
 var commands = map[string]command{

@@ -13,32 +13,6 @@ import (
 
 var epoch = mustParseTime("2010-01-02T12:00:00+02:00")
 
-var resolveTestData = `
-0 100 12:00 +2s +3s 13:00 +2s
-1 50 09:00 10:00
-
-all=0:newest
-0 100 104
-1 50 52
-
-all=0:
-0 100 104
-1 50 52
-
-all=:newest
-0 100 104
-1 50 52
-
-0=:
-0 100 104
-
-0=100:103
-0 100 103
-
-----
-
-`
-
 type resolveTestGroup struct {
 	times   map[int32][]time.Time
 	offsets map[int32]int64
