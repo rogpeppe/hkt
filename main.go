@@ -12,7 +12,7 @@ type command interface {
 	run(args []string) error
 }
 
-var usageMessage = `hkt is a tool for Kafka.
+var usageMessage = fmt.Sprintf(`hkt is a tool for Kafka.
 
 Usage:
 
@@ -32,10 +32,10 @@ Authorization:
 
 Authorization with Kafka can be configured via a JSON file.
 You can set the file name via an "-auth" flag to each command or
-set it via the environment variable KT_AUTH.
+set it via the environment variable %s.
 
 More at https://github.com/heetch/hkt
-`
+`, ENV_AUTH)
 
 var commands = map[string]command{
 	"consume": &consumeCmd{},

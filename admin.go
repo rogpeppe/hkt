@@ -82,8 +82,8 @@ func (cmd *adminCmd) environFlags() map[string]string {
 	}
 }
 
-var adminDocString = `
-The value for -brokers can also be set via environment variables KT_BROKERS.
+var adminDocString = fmt.Sprintf(`
+The value for -brokers can also be set via environment variables %s.
 The value supplied on the command line wins over the environment variable value.
 
 If both -createtopic and deletetopic are supplied, -createtopic wins.
@@ -93,4 +93,5 @@ cf https://godoc.org/github.com/Shopify/sarama#TopicDetail
 
 A simple way to pass a JSON file is to use a tool like https://github.com/fgeller/jsonify and shell's process substition:
 
-kt admin -createtopic morenews -topicdetail <(jsonify =NumPartitions 1 =ReplicationFactor 1)`
+kt admin -createtopic morenews -topicdetail <(jsonify =NumPartitions 1 =ReplicationFactor 1)`,
+	ENV_BROKERS)

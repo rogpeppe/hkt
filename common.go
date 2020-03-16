@@ -27,6 +27,7 @@ const (
 	ENV_ADMIN_TIMEOUT = "KT_ADMIN_TIMEOUT"
 	ENV_BROKERS       = "KT_BROKERS"
 	ENV_TOPIC         = "KT_TOPIC"
+	ENV_REGISTRY      = "KT_REGISTRY"
 )
 
 var (
@@ -86,7 +87,7 @@ func (f *commonFlags) saramaConfig(name string) (*sarama.Config, error) {
 	}
 	cfg.ClientID = "kt-" + name + "-" + sanitizeUsername(username)
 
-	if err = readAuthFile(f.authFile, os.Getenv(envAuth), &f.auth); err != nil {
+	if err = readAuthFile(f.authFile, os.Getenv(ENV_AUTH), &f.auth); err != nil {
 		return nil, fmt.Errorf("failed to read auth file: %w", err)
 	}
 

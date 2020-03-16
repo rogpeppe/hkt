@@ -13,7 +13,7 @@ func TestProduceParseArgsUsesEnvVar(t *testing.T) {
 	c := qt.New(t)
 	defer c.Done()
 
-	c.Setenv("KT_BROKERS", "hans:2000")
+	c.Setenv(ENV_BROKERS, "hans:2000")
 
 	cmd0, _, err := parseCmd("hkt", "produce")
 	c.Assert(err, qt.Equals, nil)
@@ -27,7 +27,7 @@ func TestProduceParseArgsDefault(t *testing.T) {
 	c := qt.New(t)
 	defer c.Done()
 
-	c.Setenv("KT_BROKERS", "")
+	c.Setenv(ENV_BROKERS, "")
 
 	cmd0, _, err := parseCmd("hkt", "produce")
 	c.Assert(err, qt.Equals, nil)
@@ -40,7 +40,7 @@ func TestProduceParseArgsFlagsOverrideEnv(t *testing.T) {
 	defer c.Done()
 
 	// command line arg wins
-	c.Setenv("KT_BROKERS", "BLABB")
+	c.Setenv(ENV_BROKERS, "BLABB")
 
 	cmd0, _, err := parseCmd("hkt", "produce", "-brokers", "hans:2000")
 	c.Assert(err, qt.Equals, nil)

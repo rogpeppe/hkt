@@ -800,8 +800,8 @@ func TestConsumeParseArgsUsesEnvVar(t *testing.T) {
 	registry := "localhost:8084"
 	broker := "hans:2000"
 
-	c.Setenv("KT_BROKERS", broker)
-	c.Setenv("KT_REGISTRY", registry)
+	c.Setenv(ENV_BROKERS, broker)
+	c.Setenv(ENV_REGISTRY, registry)
 
 	cmd0, _, err := parseCmd("hkt", "consume")
 	c.Assert(err, qt.Equals, nil)
@@ -815,8 +815,8 @@ func TestConsumeParseArgsDefault(t *testing.T) {
 	c := qt.New(t)
 	defer c.Done()
 
-	c.Setenv("KT_BROKERS", "")
-	c.Setenv("KT_REGISTRY", "")
+	c.Setenv(ENV_BROKERS, "")
+	c.Setenv(ENV_REGISTRY, "")
 
 	cmd0, _, err := parseCmd("hkt", "consume")
 	c.Assert(err, qt.Equals, nil)
@@ -833,8 +833,8 @@ func TestConsumeParseArgsFlagsOverrideEnv(t *testing.T) {
 	broker := "hans:2000"
 
 	// command line arg wins
-	c.Setenv("KT_BROKERS", "BLABB")
-	c.Setenv("KT_REGISTRY", "BLABB")
+	c.Setenv(ENV_BROKERS, "BLABB")
+	c.Setenv(ENV_REGISTRY, "BLABB")
 
 	cmd0, _, err := parseCmd("hkt", "consume", "-brokers", broker, "-registry", registry)
 	c.Assert(err, qt.Equals, nil)
@@ -933,7 +933,7 @@ func newTestRegistry(c *qt.C) *testRegistry {
 	ctx := context.Background()
 	reg := &testRegistry{
 		sub: randomString(10),
-		url: os.Getenv("KT_REGISTRY"),
+		url: os.Getenv(ENV_REGISTRY),
 	}
 	// If KT_REGISTRY is not explicitly set, we use a fake server.
 	if reg.url == "" {

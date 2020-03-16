@@ -48,7 +48,7 @@ func TestSystem(t *testing.T) {
 			topic := randomString(6)
 			e.Vars = append(e.Vars,
 				"topic="+topic,
-				"KT_BROKERS="+testBrokerAddr,
+				ENV_BROKERS+"="+testBrokerAddr,
 				"now="+time.Now().UTC().Format(time.RFC3339),
 			)
 			e.Defer(func() {

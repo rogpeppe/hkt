@@ -182,6 +182,7 @@ func (cmd *topicCmd) readTopic(name string) (topic, error) {
 	return top, nil
 }
 
-var topicDocString = `
-The values for -brokers can also be set via the environment variable KT_BROKERS respectively.
-The values supplied on the command line win over environment variable values.`
+var topicDocString = fmt.Sprintf(`
+The values for -brokers can also be set via the environment variable %s respectively.
+The values supplied on the command line win over environment variable values.`,
+	ENV_BROKERS)

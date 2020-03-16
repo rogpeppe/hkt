@@ -261,8 +261,8 @@ func (p producerPartitioner) MessageRequiresConsistency(m *sarama.ProducerMessag
 	return p.RequiresConsistency()
 }
 
-var produceDocString = `
-The value for -brokers can also be set with the environment variable KT_BROKERS.
+var produceDocString = fmt.Sprintf(`
+The value for -brokers can also be set with the environment variable %s.
 The value supplied on the command line takes precedence over the environment variable.
 
 Input is read from stdin and separated by newlines.
@@ -299,4 +299,4 @@ Keep reading input from stdin until interrupted (via ^C).
   $ hkt consume -topic greetings -timeout 1s -offsets 0:4-
   {"partition":0,"offset":4,"key":"hello.","message":"hello."}
   {"partition":0,"offset":5,"key":"bonjour.","message":"bonjour."}
-`
+`, ENV_BROKERS)
