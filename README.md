@@ -44,7 +44,8 @@ $ echo 'Alice wins Oscar' | hkt produce -topic actor-news -literal
   "partition": 0,
   "startOffset": 0
 }
-$ echo 'Bob wins Oscar' | hkt produce -tlsca myca.pem -tlscert myclientcert.pem -tlscertkey mycertkey.pem -topic actor-news -literal
+
+$ echo 'Bob wins Oscar' | kt produce -topic actor-news -literal
 {
   "count": 1,
   "partition": 0,
@@ -233,3 +234,25 @@ Alternatively, the usual way via the go tool, for example:
             admin          basic cluster administration.
 
     Use "hkt [command] -help" for for information about the command.
+
+    Authorization:
+
+    Authorization with Kafka can be configured via a JSON file.
+    You can set the file name via an "-auth" flag to each command or
+    set it via the environment variable KT_AUTH.
+
+
+## Authorization
+
+Currently the only supported mode is TLS, please create an
+[https://github.com/heetch/hkt/issues/new](issue) with details in case you need
+another mode. Example for an authorization configuration that is used for the
+system tests:
+
+
+    {
+        "mode": "TLS",
+        "client-certificate": "test-secrets/kt-test.crt",
+        "client-certificate-key": "test-secrets/kt-test.key",
+        "ca-certificate": "test-secrets/snakeoil-ca-1.crt"
+    }

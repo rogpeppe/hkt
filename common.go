@@ -69,7 +69,7 @@ func (f *commonFlags) addFlags(flags *flag.FlagSet) {
 	flags.Var(listFlag{&f.brokerStrs}, "brokers", "Comma-separated list of brokers.  Each broker definition may optionally contain a port number. The port defaults to 9092 when omitted.")
 	flags.Var(kafkaVersionFlag{v: &f.version}, "version", "Kafka protocol version")
 	flags.BoolVar(&f.tlsRequested, "tls", false, "Request server-side TLS without client-side.")
-	flags.StringVar(&f.authFile, "auth", "", "Path to auth configuration file")
+	flags.StringVar(&f.authFile, "auth", "", "Path to auth configuration file. It can also be set via KT_AUTH env variable")
 	flags.BoolVar(&f.verbose, "verbose", false, "More verbose logging to stderr.")
 }
 
