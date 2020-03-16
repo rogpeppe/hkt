@@ -28,9 +28,9 @@ The commands are:
 
 Use "hkt [command] -help" for for information about the command.
 
-Authorization:
+Authentication:
 
-Authorization with Kafka can be configured via a JSON file.
+Authentication with Kafka can be configured via a JSON file.
 You can set the file name via an "-auth" flag to each command or
 set it via the environment variable %s.
 
