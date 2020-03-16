@@ -159,6 +159,7 @@ func (cmd *consumeCmd) run(args []string) error {
 		}
 		cmd.allPartitions = keyPartitions
 	}
+
 	resolvedOffsets, limits, err := cmd.resolveOffsets(context.TODO(), offsets)
 	if err != nil {
 		return fmt.Errorf("cannot resolve offsets: %v", err)
@@ -191,6 +192,7 @@ func (cmd *consumeCmd) consume(partitions map[int32]resolvedInterval, limits map
 		if interval.end > limits[p] {
 			interval.end = limits[p]
 		}
+
 		outc := make(chan *sarama.ConsumerMessage)
 		go func() {
 			defer wg.Done()
