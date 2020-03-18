@@ -241,7 +241,6 @@ Alternatively, the usual way via the go tool, for example:
     You can set the file name via an "-auth" flag to each command or
     set it via the environment variable KT_AUTH.
 
-
 ## Authentication / Encryption
 
 Authentication configuration is possibly via a JSON file. You indicate the mode
