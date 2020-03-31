@@ -399,10 +399,3 @@ func unixMilliseconds(t time.Time) int64 {
 	ns := time.Duration(t.UnixNano())
 	return int64(ns / time.Millisecond)
 }
-
-func fromUnixMilliseconds(ts int64) time.Time {
-	if ts <= 0 {
-		return time.Time{}
-	}
-	return time.Unix(ts/1000, (ts%1000)*1e6)
-}
