@@ -283,5 +283,6 @@ Example:
 ### Other modes
 
 Please create an
-[https://github.com/heetch/hkt/issues/new](issue) with details for the mode that you need.
+[issue](https://github.com/heetch/hkt/issues/new) with details for the mode that you need.
+
 
