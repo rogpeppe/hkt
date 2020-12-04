@@ -24,7 +24,8 @@ The commands are:
 	produce    produce messages.
 	topic      topic information.
 	group      consumer group information and modification.
-	admin      basic cluster administration.
+	admin	   basic cluster administration.
+	version	   for details on what version you are running.
 
 Use "hkt [command] -help" for for information about the command.
 
@@ -43,6 +44,7 @@ var commands = map[string]command{
 	"topic":   &topicCmd{},
 	"group":   &groupCmd{},
 	"admin":   &adminCmd{},
+	"version": &versionCmd{},
 }
 
 var errSilent = fmt.Errorf("silent error; you should not be seeing this")
