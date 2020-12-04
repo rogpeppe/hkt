@@ -50,6 +50,7 @@ func TestSystem(t *testing.T) {
 				"topic="+topic,
 				ENV_BROKERS+"="+testBrokerAddr,
 				"now="+time.Now().UTC().Format(time.RFC3339),
+				"GODEBUG=x509ignoreCN=0",
 			)
 			e.Defer(func() {
 				if err := deleteTopic(topic); err != nil {
