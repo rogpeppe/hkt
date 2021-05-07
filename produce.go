@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
+	"github.com/burdiyan/kafkautil"
 )
 
 type produceCmd struct {
@@ -46,6 +47,7 @@ var partitioners = map[string]func(topic string) sarama.Partitioner{
 	"std":        sarama.NewReferenceHashPartitioner,
 	"random":     sarama.NewRandomPartitioner,
 	"roundrobin": sarama.NewRoundRobinPartitioner,
+	"murmur2":    kafkautil.NewJVMCompatiblePartitioner,
 }
 
 var compressionTypes = map[string]sarama.CompressionCodec{
@@ -65,7 +67,7 @@ func (cmd *produceCmd) addFlags(flags *flag.FlagSet) {
 	flags.BoolVar(&cmd.pretty, "pretty", true, "Control output pretty printing.")
 	flags.BoolVar(&cmd.literal, "literal", false, "Interpret stdin line literally and pass it as value, key as null.")
 	flags.StringVar(&cmd.compressionType, "compression", "none", "Kafka message compression codec [gzip|snappy|lz4]")
-	flags.StringVar(&cmd.partitionerType, "partitioner", "sarama", "Optional partitioner to use. Available: sarama, std, random, roundrobin")
+	flags.StringVar(&cmd.partitionerType, "partitioner", "sarama", "Optional partitioner to use. Available: sarama, std, random, roundrobin, murmur2")
 	flags.StringVar(&cmd.keyCodecType, "keycodec", "string", "Interpret message value as (string|hex|base64), defaults to string.")
 	flags.StringVar(&cmd.valueCodecType, "valuecodec", "json", "Interpret message value as (json|string|hex|base64), defaults to json.")
 	flags.IntVar(&cmd.maxLineLen, "maxline", 16*1024*1024, "Maximum length of input line")

@@ -978,8 +978,8 @@ func (reg *testRegistry) fakeServerHandler(w http.ResponseWriter, r *http.Reques
 			panic(err)
 		}
 	}
-	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/vnd.schemaregistry.v1+json")
+	w.WriteHeader(http.StatusOK)
 	w.Write(body)
 }
 

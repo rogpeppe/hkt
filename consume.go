@@ -458,7 +458,7 @@ func parseConsumerPartitioners(ps []string, defaultPartitioner sarama.Partitione
 		switch p {
 		case "all":
 			cp.all = true
-		case "sarama", "std":
+		case "murmur2", "sarama", "std":
 			cp.partitioners = append(cp.partitioners, partitionerFunc(partitioners[p]))
 		default:
 			return nil, fmt.Errorf("unknown partitioner %q", p)
@@ -575,9 +575,10 @@ clients may have chosen. This is specified with the "-partitioners" flag,
 which should be set to all the possible partitioners used by producers
 to the topic. Possible partitioners are:
 
-	sarama - used by default with the Sarama Go client.
-	std - used by the Java clients
-	all - all partitions will be read
+	murmur2 - used by default on Java clients
+	sarama - used by default with the Sarama Go client. (Default)
+	std - used by Java clients
+	all - all partitions will be tried
 
 As the number of partitions can change over time, this technique will
 only work correctly if they haven't changed over the range of messages
