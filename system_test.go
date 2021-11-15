@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path"
 	"strings"
 	"testing"
 	"time"
@@ -28,7 +27,6 @@ func TestMain(m *testing.M) {
 
 const (
 	testBrokerAddr = "localhost:9092"
-	testSecretsDir = "test-secrets"
 )
 
 func TestSystem(t *testing.T) {
@@ -43,10 +41,6 @@ func TestSystem(t *testing.T) {
 	//
 	// It makes a command available that does JSON comparison
 	// (see the cmpenvjson docs).
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
 	testscript.Run(t, testscript.Params{
 		Dir: "testdata",
 		Cmds: map[string]func(ts *testscript.TestScript, neg bool, args []string){
@@ -58,9 +52,6 @@ func TestSystem(t *testing.T) {
 				"topic="+topic,
 				ENV_BROKERS+"="+testBrokerAddr,
 				"now="+time.Now().UTC().Format(time.RFC3339),
-				ENV_AUTH+"="+path.Join(testSecretsDir, "auth.json"),
-				"SECRETS_DIR="+path.Join(cwd, testSecretsDir),
-				"GODEBUG=x509ignoreCN=0",
 			)
 			e.Defer(func() {
 				if err := deleteTopic(topic); err != nil {
@@ -128,17 +119,6 @@ func cmpenvjson(ts *testscript.TestScript, neg bool, args []string) {
 func deleteTopic(topic string) error {
 	cfg := sarama.NewConfig()
 	cfg.Version = defaultKafkaVersion
-
-	authCfg := authConfig{}
-	err := readAuthFile(path.Join(testSecretsDir, "auth.json"), "", &authCfg)
-	if err != nil {
-		return err
-	}
-	err = setupAuthTLS(authCfg, cfg)
-	if err != nil {
-		return err
-	}
-
 	admin, err := sarama.NewClusterAdmin([]string{testBrokerAddr}, cfg)
 	if err != nil {
 		return err
