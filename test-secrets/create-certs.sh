@@ -6,7 +6,7 @@ set -o nounset \
     -o xtrace
 
 # Generate CA key
-openssl req -new -x509 -keyout snakeoil-ca-1.key -out snakeoil-ca-1.crt -days 365 -subj '/CN=localhost/OU=TEST/O=KT' -passin pass:ktktkt -passout pass:ktktkt
+openssl req -new -x509 -keyout snakeoil-ca-1.key -out snakeoil-ca-1.crt -days 3650 -subj '/CN=localhost/OU=TEST/O=KT' -passin pass:ktktkt -passout pass:ktktkt
 
 for i in broker1
 do

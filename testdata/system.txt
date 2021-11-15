@@ -1,3 +1,6 @@
+mkdir test-secrets
+cp ${SECRETS_DIR}/auth.json ${SECRETS_DIR}/kt-test.crt ${SECRETS_DIR}/kt-test.key ${SECRETS_DIR}/snakeoil-ca-1.crt test-secrets
+
 # 0
 kt admin -createtopic $topic -topicdetail 0-admin/topic.json
 ! stderr .
