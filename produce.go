@@ -276,7 +276,7 @@ func (p producerPartitioner) MessageRequiresConsistency(m *sarama.ProducerMessag
 }
 
 var produceDocString = fmt.Sprintf(`
-The value for -brokers can also be set with the environment variable %s.
+The value for -brokers and -registry can also be set with the environment variables %s and %s respectively.
 The value supplied on the command line takes precedence over the environment variable.
 
 Input is read from stdin and separated by newlines.
@@ -289,7 +289,7 @@ like the following:
 
     {"key": "id-23", "value": "message content", "partition": 0}
 
-In case the input line cannot be interpeted as a JSON object the key and value
+In case the input line cannot be interpreted as a JSON object the key and value
 both default to the input line and partition to 0.
 
 Examples:
@@ -313,4 +313,20 @@ Keep reading input from stdin until interrupted (via ^C).
   $ hkt consume -topic greetings -timeout 1s -offsets 0:4-
   {"partition":0,"offset":4,"key":"hello.","message":"hello."}
   {"partition":0,"offset":5,"key":"bonjour.","message":"bonjour."}
-`, ENV_BROKERS)
+
+AVRO
+
+It can produce messages using Avro format provided -registry flag and -valuecodec avro. In order to know
+which schema should use, it looks for latest version in the schema registry whose subject be "${topic}-value"
+following Kafka Schema Registry TopicNameStrategy.
+
+For example, provided this schema in the Registry whose subject is "topic-1-value":
+
+   {"type": "record", "name": "R", "fields": [{"type": "int", "name": "Field"}]}
+
+Running the following command:
+
+   $ echo '{"key": "id-42", "value": {"Field": 1}}' | hkt produce -topic topic-1 -registry http://localhost:8081 -valuecodec avro
+
+Sends Avro formatted message to the topic.
+`, ENV_BROKERS, ENV_REGISTRY)

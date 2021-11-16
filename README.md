@@ -5,11 +5,14 @@ _This is a fork of KT that we maintain, adding features oriented toward debuggin
 Some reasons why you might be interested:
 
 * Consume messages on specific partitions between specific offsets.
+* JSON/Avro/String formatted messages consumption with optional filtering by key
+* JSON/Avro/String formatted messages production
 * Display topic information (e.g., with partition offset and leader info).
 * Modify consumer group offsets (e.g., resetting or manually setting offsets per topic and per partition).
 * JSON output for easy consumption with tools like [kp](https://github.com/echojc/kp) or [jq](https://stedolan.github.io/jq/).
 * JSON input to facilitate automation via tools like [jsonify](https://github.com/fgeller/jsonify).
-* Configure brokers and authentication  with the `KT_BROKERS` and `KT_AUTH` environment variables.
+* Configure brokers, schema registry, and authentication with the
+  `KT_BROKERS`, `KT_REGISTRY` and `KT_AUTH` environment variables.
 * Fast start up time.
 * No buffering of output.
 * Binary keys and payloads can be passed and presented in base64 or hex encoding.
@@ -207,6 +210,36 @@ $ hkt <command> <option>
 ```
 
 </details>
+
+<details><summary>Produce and consume Avro formatted messages</summary>
+
+Provided this schema for this `subject` `actors-value` in Schema Registry `http://localhost:8081`:
+
+```json
+{"type": "record", "name": "Actor", "fields": [{"type": "string", "name": "FirstName"}]}
+```
+
+It may produce the Avro formatted message:
+
+```sh
+$ echo '{"value": {"FirstName": "Ryan"}, "key": "id-42"}' | hkt produce -topic actors -registry http://localhost:8081 -valuecodec avro
+```
+
+That it may be consumed:
+```sh
+$ hkt consume -registry http://localhost:8081 -valuecodec avro actors
+{
+  "partition": 0,
+  "offset": 0,
+  "key": "id-42",
+  "value": {
+    "FirstName": "Ryan"
+  },
+  "time": "2021-11-16T01:01:01Z"
+}
+```
+</details>
+
 
 ## Installation
 
