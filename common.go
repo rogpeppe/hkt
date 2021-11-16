@@ -350,6 +350,71 @@ func (c *coder) makeAvroDecoder(keyOrValue string) func(m json.RawMessage) ([]by
 	}
 }
 
+// encoderForType returns a function to encode key or value depending of the expected format defined in typ
+func (c *coder) encoderForType(keyOrValue, typ string) (func([]byte) (json.RawMessage, error), error) {
+	var enc func([]byte) string
+	switch typ {
+	case "json":
+		return func(data []byte) (json.RawMessage, error) {
+			if err := json.Unmarshal(data, new(json.RawMessage)); err != nil {
+				return nil, fmt.Errorf("invalid JSON value %q: %v", data, err)
+			}
+			return json.RawMessage(data), nil
+		}, nil
+	case "hex":
+		enc = hex.EncodeToString
+	case "base64":
+		enc = base64.StdEncoding.EncodeToString
+	case "string":
+		enc = func(data []byte) string {
+			return string(data)
+		}
+	case "avro":
+		return c.encodeAvro, nil
+	default:
+		return nil, fmt.Errorf(`unsupported decoder %#v, only json, string, hex, base64 and avro are supported`, typ)
+	}
+	return func(data []byte) (json.RawMessage, error) {
+		if data == nil {
+			return nullJSON, nil
+		}
+		data1, err := json.Marshal(enc(data))
+		if err != nil {
+			// marshaling a string cannot fail but be defensive.
+			return nil, err
+		}
+		return json.RawMessage(data1), nil
+	}, nil
+}
+
+func (c *coder) encodeAvro(data []byte) (json.RawMessage, error) {
+	dec := c.registry.Decoder()
+	id, body := dec.DecodeSchemaID(data)
+	if body == nil {
+		return nil, fmt.Errorf("cannot decode schema id")
+	}
+	// TODO: cache the schema
+	schema, err := dec.SchemaForID(context.Background(), id)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get schema for id %d: %v", id, err)
+	}
+	// Canonicalize the schema to remove default values and logical types
+	// to work around https://github.com/linkedin/goavro/issues/198
+	codec, err := goavro.NewCodec(schema.CanonicalString(0))
+	if err != nil {
+		return nil, fmt.Errorf("cannot create codec from schema %s: %v", schema, err)
+	}
+	native, _, err := codec.NativeFromBinary(body)
+	if err != nil {
+		return nil, fmt.Errorf("cannot convert native from binary: %v", err)
+	}
+	textual, err := codec.TextualFromNative(nil, native)
+	if err != nil {
+		return nil, fmt.Errorf("cannot convert textual from native: %v", err)
+	}
+	return json.RawMessage(textual), nil
+}
+
 var nullJSON = json.RawMessage("null")
 
 func min(x, y int64) int64 {

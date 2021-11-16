@@ -3,8 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -16,7 +14,6 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/heetch/avro/avroregistry"
-	"github.com/linkedin/goavro/v2"
 )
 
 type consumeCmd struct {
@@ -104,7 +101,7 @@ func (cmd *consumeCmd) run(args []string) error {
 			return fmt.Errorf("cannot make Avro registry client: %v", err)
 		}
 	}
-	cmd.encodeValue, err = cmd.encoderForType(cmd.valueCodecType)
+	cmd.encodeValue, err = cmd.encoderForType("value", cmd.valueCodecType)
 	if err != nil {
 		return fmt.Errorf("bad -valuecodec argument: %v", err)
 	}
@@ -112,7 +109,7 @@ func (cmd *consumeCmd) run(args []string) error {
 		// JSON for keys is not a good idea.
 		return fmt.Errorf("JSON key codec not supported")
 	}
-	cmd.encodeKey, err = cmd.encoderForType(cmd.keyCodecType)
+	cmd.encodeKey, err = cmd.encoderForType("key", cmd.keyCodecType)
 	if err != nil {
 		return fmt.Errorf("bad -keycodec argument: %v", err)
 	}
@@ -303,70 +300,6 @@ func (cmd *consumeCmd) newConsumedMessage(m *sarama.ConsumerMessage) (consumedMe
 		result.Time = &t
 	}
 	return result, nil
-}
-
-func (cmd *consumeCmd) encoderForType(typ string) (func([]byte) (json.RawMessage, error), error) {
-	var enc func([]byte) string
-	switch typ {
-	case "json":
-		return func(data []byte) (json.RawMessage, error) {
-			if err := json.Unmarshal(data, new(json.RawMessage)); err != nil {
-				return nil, fmt.Errorf("invalid JSON value %q: %v", data, err)
-			}
-			return json.RawMessage(data), nil
-		}, nil
-	case "hex":
-		enc = hex.EncodeToString
-	case "base64":
-		enc = base64.StdEncoding.EncodeToString
-	case "string":
-		enc = func(data []byte) string {
-			return string(data)
-		}
-	case "avro":
-		return cmd.encodeAvro, nil
-	default:
-		return nil, fmt.Errorf(`unsupported decoder %#v, only json, string, hex, base64 and avro are supported`, typ)
-	}
-	return func(data []byte) (json.RawMessage, error) {
-		if data == nil {
-			return nullJSON, nil
-		}
-		data1, err := json.Marshal(enc(data))
-		if err != nil {
-			// marshaling a string cannot fail but be defensive.
-			return nil, err
-		}
-		return json.RawMessage(data1), nil
-	}, nil
-}
-
-func (cmd *consumeCmd) encodeAvro(data []byte) (json.RawMessage, error) {
-	dec := cmd.registry.Decoder()
-	id, body := dec.DecodeSchemaID(data)
-	if body == nil {
-		return nil, fmt.Errorf("cannot decode schema id")
-	}
-	// TODO: cache the schema
-	schema, err := dec.SchemaForID(context.Background(), id)
-	if err != nil {
-		return nil, fmt.Errorf("cannot get schema for id %d: %v", id, err)
-	}
-	// Canonicalize the schema to remove default values and logical types
-	// to work around https://github.com/linkedin/goavro/issues/198
-	codec, err := goavro.NewCodec(schema.CanonicalString(0))
-	if err != nil {
-		return nil, fmt.Errorf("cannot create codec from schema %s: %v", schema, err)
-	}
-	native, _, err := codec.NativeFromBinary(body)
-	if err != nil {
-		return nil, fmt.Errorf("cannot convert native from binary: %v", err)
-	}
-	textual, err := codec.TextualFromNative(nil, native)
-	if err != nil {
-		return nil, fmt.Errorf("cannot convert textual from native: %v", err)
-	}
-	return json.RawMessage(textual), nil
 }
 
 // mergeConsumers merges all the given channels in timestamp order
