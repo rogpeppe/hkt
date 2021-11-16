@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"github.com/Shopify/sarama"
+	"github.com/heetch/avro"
 	"github.com/heetch/avro/avroregistry"
 	goavro "github.com/linkedin/goavro/v2"
 	"golang.org/x/crypto/ssh/terminal"
@@ -318,7 +319,15 @@ func (c *coder) makeAvroDecoder(keyOrValue string) func(m json.RawMessage) ([]by
 			return nil, err
 		}
 
-		inCodec, err := goavro.NewCodec(sch.Schema)
+		// TODO: Cache schema
+		t, err := avro.ParseType(sch.Schema)
+		if err != nil {
+			return nil, err
+		}
+
+		// Canonicalize the schema to remove default values and logical types
+		// to work around https://github.com/linkedin/goavro/issues/198
+		inCodec, err := goavro.NewCodec(t.CanonicalString(0))
 		if err != nil {
 			return nil, err
 		}
