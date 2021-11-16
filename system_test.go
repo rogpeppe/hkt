@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 
 const (
 	testBrokerAddr   = "localhost:9092"
-	testRegistryAddr = "http://localhost:8084"
+	testRegistryAddr = "http://localhost:8081"
 )
 
 func TestSystem(t *testing.T) {

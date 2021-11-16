@@ -26,7 +26,7 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS: 1
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_CONFLUENT_SCHEMA_REGISTRY_URL: http://schemaregistry-1:8084
+      KAFKA_CONFLUENT_SCHEMA_REGISTRY_URL: http://schemaregistry-1:8081
       KAFKA_SSL_CLIENT_AUTH: none
     # Refer to fgeller/kt to configure with SSL support
     volumes:
@@ -40,8 +40,8 @@ services:
       - zookeeper-1
       - kafka-1
     ports:
-        - 8084:8084
+        - 8081:8081
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schemaregistry-1
-      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8084
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka-1:29092
