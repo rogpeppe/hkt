@@ -326,7 +326,7 @@ AVRO
 
 It can produce messages using Avro format provided -registry flag and -valuecodec avro.
 
- In order to know which schema to use, there are several ways:
+In order to know which schema to use, there are several ways:
 
 1. Kafka Schema Registry TopicNameStrategy
 
