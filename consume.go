@@ -96,7 +96,7 @@ func (cmd *consumeCmd) run(args []string) error {
 		if cmd.registryURL == "" {
 			return fmt.Errorf("-registry or $%s required for avro codec type", ENV_REGISTRY)
 		}
-		cmd.registry, err = avroregistry.New(avroregistry.Params{ServerURL: cmd.registryURL})
+		cmd.avroRegistry, err = avroregistry.New(avroregistry.Params{ServerURL: cmd.registryURL})
 		if err != nil {
 			return fmt.Errorf("cannot make Avro registry client: %v", err)
 		}

@@ -97,11 +97,19 @@ func (cmd *produceCmd) run(args []string) error {
 	cmd.partitioner = partitioner
 	var err error
 
+	if cmd.avscFile != "" {
+		// Override -valuecodec flag
+		cmd.valueCodecType = "avro"
+		if err := cmd.loadSchemaFile(cmd.avscFile); err != nil {
+			return fmt.Errorf("cannot load AVSC avro file: %w", err)
+		}
+	}
+
 	if cmd.valueCodecType == "avro" {
 		if cmd.registryURL == "" {
 			return fmt.Errorf("-registry or $%s required for avro codec type", ENV_REGISTRY)
 		}
-		cmd.registry, err = avroregistry.New(avroregistry.Params{ServerURL: cmd.registryURL})
+		cmd.avroRegistry, err = avroregistry.New(avroregistry.Params{ServerURL: cmd.registryURL})
 		if err != nil {
 			return fmt.Errorf("cannot make Avro registry client: %v", err)
 		}

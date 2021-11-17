@@ -268,13 +268,17 @@ func setFlagsFromEnv(fs *flag.FlagSet, flags map[string]string) error {
 type coder struct {
 	topic       string
 	registryURL string
+	avscFile    string
 
-	registry *avroregistry.Registry
+	avroRegistry *avroregistry.Registry
+	avroSchema   *avro.Type
+	avroSchemaID int64
 }
 
 // addFlags adds flags required for encoding and decoding.
 func (c *coder) addFlags(flags *flag.FlagSet) {
 	flags.StringVar(&c.registryURL, "registry", "", "The Avro schema registry server URL.")
+	flags.StringVar(&c.avscFile, "value-avro-schema", "", `Path to AVSC file to format the file. If it is set, then -valuecodec is set to "avro"`)
 }
 
 // decoderForType returns a function to decode key or value depending of the expected format defined in typ
@@ -313,21 +317,36 @@ func (c *coder) makeAvroDecoder(keyOrValue string) func(m json.RawMessage) ([]by
 		// Subject using Kafka Schema Registry for value
 		subject := c.topic + "-" + keyOrValue
 
-		ctx := context.Background()
-		sch, err := c.registry.Schema(ctx, subject, "latest")
-		if err != nil {
-			return nil, err
-		}
+		enc := c.avroRegistry.Encoder(subject)
 
-		// TODO: Cache schema
-		t, err := avro.ParseType(sch.Schema)
-		if err != nil {
-			return nil, err
+		if c.avroSchemaID == 0 {
+			ctx := context.Background()
+			if c.avroSchema == nil {
+				sch, err := c.avroRegistry.Schema(ctx, subject, "latest")
+				if err != nil {
+					return nil, err
+				}
+
+				t, err := avro.ParseType(sch.Schema)
+				if err != nil {
+					return nil, err
+				}
+
+				// Caching avroSchemaID for next calls
+				c.avroSchema = t
+				c.avroSchemaID = sch.ID
+			} else {
+				id, err := enc.IDForSchema(ctx, c.avroSchema)
+				if err != nil {
+					return nil, err
+				}
+				c.avroSchemaID = id
+			}
 		}
 
 		// Canonicalize the schema to remove default values and logical types
 		// to work around https://github.com/linkedin/goavro/issues/198
-		inCodec, err := goavro.NewCodec(t.CanonicalString(0))
+		inCodec, err := goavro.NewCodec(c.avroSchema.CanonicalString(0))
 		if err != nil {
 			return nil, err
 		}
@@ -342,12 +361,28 @@ func (c *coder) makeAvroDecoder(keyOrValue string) func(m json.RawMessage) ([]by
 			return nil, err
 		}
 
-		enc := c.registry.Encoder(subject)
 		buf := make([]byte, 0, 512)
-		buf = enc.AppendSchemaID(buf, sch.ID)
+		buf = enc.AppendSchemaID(buf, c.avroSchemaID)
 
 		return append(buf, inBlob...), nil
 	}
+}
+
+// loadSchemaFile loads AVSC file from the given path and it is stored in avroSchema
+func (c *coder) loadSchemaFile(path string) error {
+	blob, err := ioutil.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("failed to read AVSC file: %w", err)
+	}
+
+	t, err := avro.ParseType(string(blob))
+	if err != nil {
+		return fmt.Errorf("failed to parse AVSC file: %w", err)
+	}
+
+	c.avroSchema = t
+
+	return nil
 }
 
 // encoderForType returns a function to encode key or value depending of the expected format defined in typ
@@ -388,7 +423,7 @@ func (c *coder) encoderForType(keyOrValue, typ string) (func([]byte) (json.RawMe
 }
 
 func (c *coder) encodeAvro(data []byte) (json.RawMessage, error) {
-	dec := c.registry.Decoder()
+	dec := c.avroRegistry.Decoder()
 	id, body := dec.DecodeSchemaID(data)
 	if body == nil {
 		return nil, fmt.Errorf("cannot decode schema id")

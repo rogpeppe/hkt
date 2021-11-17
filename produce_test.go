@@ -106,8 +106,8 @@ func TestMakeSaramaMessage(t *testing.T) {
 
 		cmd := produceCmd{
 			coder: coder{
-				topic:    "a",
-				registry: reg.registry,
+				topic:        "a",
+				avroRegistry: reg.registry,
 			},
 		}
 
