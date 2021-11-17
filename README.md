@@ -219,7 +219,7 @@ Provided this schema for this `subject` `actors-value` in Schema Registry `http:
 {"type": "record", "name": "Actor", "fields": [{"type": "string", "name": "FirstName"}]}
 ```
 
-It may produce the Avro formatted message:
+It produces the Avro formatted message:
 
 ```sh
 $ echo '{"value": {"FirstName": "Ryan"}, "key": "id-42"}' | hkt produce -topic actors -registry http://localhost:8081 -valuecodec avro
