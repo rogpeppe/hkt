@@ -53,9 +53,11 @@ func TestSystem(t *testing.T) {
 		},
 		Setup: func(e *testscript.Env) error {
 			topic := randomString(6)
-			deregisterFn := register(t, topic)
+			recordName := "alt"
+			deregisterFn := registerSchemas(t, topic, recordName)
 			e.Vars = append(e.Vars,
 				"topic="+topic,
+				"recordName="+recordName,
 				ENV_BROKERS+"="+testBrokerAddr,
 				ENV_REGISTRY+"="+testRegistryAddr,
 				"now="+time.Now().UTC().Format(time.RFC3339),
@@ -80,9 +82,11 @@ func randomString(length int) string {
 	return fmt.Sprintf("hkt-%x", buf)
 }
 
-// register registers a given schema to testRegistry using ${topic}-value as subject
+// registerSchemas registers to testRegistry two schemas:
+// 1. using ${topic}-value as subject -> TopicNameStrategy
+// 2. using ${topic}-${recordName} as subject -> TopicRecordNameStrategy
 // returns the function to call when the test ends.
-func register(t *testing.T, topic string) func() {
+func registerSchemas(t *testing.T, topic, recordName string) func() {
 	c := qt.New(t)
 	ctx := context.Background()
 
@@ -102,8 +106,21 @@ func register(t *testing.T, topic string) func() {
 	_, err = reg.Register(ctx, subject, typ)
 	c.Check(err, qt.IsNil)
 
+	type AltR struct {
+		Bar float32
+	}
+
+	typ, err = avro.TypeOf(AltR{})
+	c.Check(err, qt.IsNil)
+
+	altSubject := topic + "-" + recordName
+	_, err = reg.Register(ctx, altSubject, typ)
+	c.Check(err, qt.IsNil)
+
 	return func() {
 		err := reg.DeleteSubject(ctx, subject)
+		c.Check(err, qt.IsNil)
+		err = reg.DeleteSubject(ctx, altSubject)
 		c.Check(err, qt.IsNil)
 	}
 }

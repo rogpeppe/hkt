@@ -16,9 +16,10 @@ import (
 
 // coder implements the common data required for encoding/decoding data
 type coder struct {
-	topic       string
-	registryURL string
-	avscFile    string
+	topic          string
+	registryURL    string
+	avscFile       string
+	avroRecordName string
 
 	avroRegistry *avroregistry.Registry
 	avroSchema   *avro.Type
@@ -29,6 +30,7 @@ type coder struct {
 func (c *coder) addFlags(flags *flag.FlagSet) {
 	flags.StringVar(&c.registryURL, "registry", "", "The Avro schema registry server URL.")
 	flags.StringVar(&c.avscFile, "value-avro-schema", "", `Path to AVSC file to format the file. If it is set, then -valuecodec is set to "avro"`)
+	flags.StringVar(&c.avroRecordName, "value-avro-record-name", "", "Record name to use when using TopicRecordNameStrategy to find the schema subject in Schema Registry")
 }
 
 // decoderForType returns a function to decode key or value depending of the expected format defined in typ
@@ -64,8 +66,13 @@ func (c *coder) decoderForType(keyOrValue, typ string) (func(m json.RawMessage) 
 
 func (c *coder) makeAvroDecoder(keyOrValue string) func(m json.RawMessage) ([]byte, error) {
 	return func(m json.RawMessage) ([]byte, error) {
-		// Subject using Kafka Schema Registry for value
+		// Check strategy to use
+		// Subject using Kafka Schema Registry for value TopicNameStrategy
 		subject := c.topic + "-" + keyOrValue
+		if c.avroRecordName != "" {
+			// Use TopicRecordNameStrategy
+			subject = c.topic + "-" + c.avroRecordName
+		}
 
 		enc := c.avroRegistry.Encoder(subject)
 
