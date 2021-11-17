@@ -97,6 +97,17 @@ func (cmd *produceCmd) run(args []string) error {
 	cmd.partitioner = partitioner
 	var err error
 
+	if cmd.avroSchemaID != 0 {
+		// Override -valuecodec flag
+		cmd.valueCodecType = "avro"
+		if cmd.avscFile != "" {
+			return fmt.Errorf("cannot use -value-avro-schema with -value-avro-schema-id")
+		}
+		if cmd.avroRecordName != "" {
+			return fmt.Errorf("cannot use -value-avro-record-name with -value-avro-schema-id")
+		}
+	}
+
 	if cmd.avscFile != "" {
 		// Override -valuecodec flag
 		cmd.valueCodecType = "avro"
@@ -363,4 +374,10 @@ Running the following command:
    $ echo '{"key": "id-44", "value": {"Band": "cloud nothings"}}' | hkt produce -topic topic-3 -registry http://localhost:8081 -value-avro-schema band.avsc
 
 In order to know the subject, "-value-avro-record-name" can be also used.
+
+3. Use the globally unique schema identifier
+
+It uses the schema identifier defined in "-value-avro-schema-id". (Warning: It does not perform any check against the registry)
+
+   $ echo '{"key": "id-45", "value": {"Field": 2}}' | hkt produce -topic topic-1 -registry http://localhost:8081 -value-avro-schema-id 109
 `, ENV_BROKERS, ENV_REGISTRY)

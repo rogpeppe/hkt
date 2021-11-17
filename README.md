@@ -257,6 +257,15 @@ Not only `TopicNameStrategy` is supported but `TopicRecordNameStrategy` is suppo
 a schema using `-value-avro-record-name`. This can be used in conjunction with `-value-avro-schema` or get
 latest version of the schema from the Schema Registry without providing any parameter.
 
+If the globally unique schema identifier is already known, it can be used instead:
+
+```sh
+$ echo '{"value": {"FirstName": "Cristina"}, "key": "id-44"}' | hkt produce -topic actors -registry http://localhost:8081 -value-avro-schema-id 100
+```
+
+Produces the record using schema whose identifier is `100`.
+
+
 </details>
 
 

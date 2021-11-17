@@ -54,10 +54,12 @@ func TestSystem(t *testing.T) {
 		Setup: func(e *testscript.Env) error {
 			topic := randomString(6)
 			recordName := "alt"
-			deregisterFn := registerSchemas(t, topic, recordName)
+			schemaIDs, deregisterFn := registerSchemas(t, topic, recordName)
 			e.Vars = append(e.Vars,
 				"topic="+topic,
 				"recordName="+recordName,
+				fmt.Sprintf("schemaID=%d", schemaIDs[0]),
+				fmt.Sprintf("recordSchemaID=%d", schemaIDs[1]),
 				ENV_BROKERS+"="+testBrokerAddr,
 				ENV_REGISTRY+"="+testRegistryAddr,
 				"now="+time.Now().UTC().Format(time.RFC3339),
@@ -85,8 +87,8 @@ func randomString(length int) string {
 // registerSchemas registers to testRegistry two schemas:
 // 1. using ${topic}-value as subject -> TopicNameStrategy
 // 2. using ${topic}-${recordName} as subject -> TopicRecordNameStrategy
-// returns the function to call when the test ends.
-func registerSchemas(t *testing.T, topic, recordName string) func() {
+// returns the schema identifiers and the function to call when the test ends.
+func registerSchemas(t *testing.T, topic, recordName string) ([]int64, func()) {
 	c := qt.New(t)
 	ctx := context.Background()
 
@@ -103,7 +105,7 @@ func registerSchemas(t *testing.T, topic, recordName string) func() {
 	c.Check(err, qt.IsNil)
 
 	subject := topic + "-value"
-	_, err = reg.Register(ctx, subject, typ)
+	id, err := reg.Register(ctx, subject, typ)
 	c.Check(err, qt.IsNil)
 
 	type AltR struct {
@@ -114,10 +116,10 @@ func registerSchemas(t *testing.T, topic, recordName string) func() {
 	c.Check(err, qt.IsNil)
 
 	altSubject := topic + "-" + recordName
-	_, err = reg.Register(ctx, altSubject, typ)
+	altID, err := reg.Register(ctx, altSubject, typ)
 	c.Check(err, qt.IsNil)
 
-	return func() {
+	return []int64{id, altID}, func() {
 		err := reg.DeleteSubject(ctx, subject)
 		c.Check(err, qt.IsNil)
 		err = reg.DeleteSubject(ctx, altSubject)

@@ -31,6 +31,7 @@ func (c *coder) addFlags(flags *flag.FlagSet) {
 	flags.StringVar(&c.registryURL, "registry", "", "The Avro schema registry server URL.")
 	flags.StringVar(&c.avscFile, "value-avro-schema", "", `Path to AVSC file to format the file. If it is set, then -valuecodec is set to "avro"`)
 	flags.StringVar(&c.avroRecordName, "value-avro-record-name", "", "Record name to use when using TopicRecordNameStrategy to find the schema subject in Schema Registry")
+	flags.Int64Var(&c.avroSchemaID, "value-avro-schema-id", 0, "Use it to select schema to produce Avro formatted schemas.")
 }
 
 // decoderForType returns a function to decode key or value depending of the expected format defined in typ
@@ -75,9 +76,9 @@ func (c *coder) makeAvroDecoder(keyOrValue string) func(m json.RawMessage) ([]by
 		}
 
 		enc := c.avroRegistry.Encoder(subject)
+		ctx := context.Background()
 
 		if c.avroSchemaID == 0 {
-			ctx := context.Background()
 			if c.avroSchema == nil {
 				sch, err := c.avroRegistry.Schema(ctx, subject, "latest")
 				if err != nil {
@@ -99,6 +100,15 @@ func (c *coder) makeAvroDecoder(keyOrValue string) func(m json.RawMessage) ([]by
 				}
 				c.avroSchemaID = id
 			}
+		}
+		if c.avroSchema == nil {
+			// only got the schemaID, gather from the registry
+			dec := c.avroRegistry.Decoder()
+			sch, err := dec.SchemaForID(ctx, c.avroSchemaID)
+			if err != nil {
+				return nil, err
+			}
+			c.avroSchema = sch
 		}
 
 		// Canonicalize the schema to remove default values and logical types
