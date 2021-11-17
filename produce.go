@@ -317,7 +317,7 @@ Keep reading input from stdin until interrupted (via ^C).
 AVRO
 
 It can produce messages using Avro format provided -registry flag and -valuecodec avro. In order to know
-which schema should use, it looks for latest version in the schema registry whose subject be "${topic}-value"
+which schema to use, it looks for latest version in the schema registry whose subject is "${topic}-value"
 following Kafka Schema Registry TopicNameStrategy.
 
 For example, provided this schema in the Registry whose subject is "topic-1-value":
