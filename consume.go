@@ -74,8 +74,8 @@ func (cmd *consumeCmd) addFlags(flags *flag.FlagSet) {
 
 func (cmd *consumeCmd) environFlags() map[string]string {
 	return map[string]string{
-		"brokers":  "KT_BROKERS",
-		"registry": "KT_REGISTRY",
+		"brokers":  ENV_BROKERS,
+		"registry": ENV_REGISTRY,
 	}
 }
 
@@ -159,6 +159,7 @@ func (cmd *consumeCmd) run(args []string) error {
 		}
 		cmd.allPartitions = keyPartitions
 	}
+
 	resolvedOffsets, limits, err := cmd.resolveOffsets(context.TODO(), offsets)
 	if err != nil {
 		return fmt.Errorf("cannot resolve offsets: %v", err)
@@ -191,6 +192,7 @@ func (cmd *consumeCmd) consume(partitions map[int32]resolvedInterval, limits map
 		if interval.end > limits[p] {
 			interval.end = limits[p]
 		}
+
 		outc := make(chan *sarama.ConsumerMessage)
 		go func() {
 			defer wg.Done()
@@ -533,7 +535,7 @@ func (cp *consumerPartitioners) partitionsForKey(key []byte, allPartitions []int
 	return chosen, nil
 }
 
-var consumeDocString = `
+var consumeDocString = fmt.Sprintf(`
 The consume command reads messages from a Kafka topic and prints them
 to the standard output.
 
@@ -559,7 +561,7 @@ For example:
 
 	{"partition":0,"key":"k1","value":{"foo":1234},"time":"2019-10-08T01:01:01Z"}
 
-The value for -brokers can also be set with the environment variable KT_BROKERS.
+The value for -brokers can also be set with the environment variable %s.
 The value supplied on the command line takes precedence over the environment variable.
 
 KEY SEARCH
@@ -756,4 +758,4 @@ and
   +10:
 
 Will achieve the same as the two examples above.
-`
+`, ENV_BROKERS)

@@ -1,3 +1,4 @@
+
 kt admin -createtopic $topic -topicdetail topic-detail.json
 
 stdin produce-stdin.json

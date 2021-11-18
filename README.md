@@ -9,7 +9,7 @@ Some reasons why you might be interested:
 * Modify consumer group offsets (e.g., resetting or manually setting offsets per topic and per partition).
 * JSON output for easy consumption with tools like [kp](https://github.com/echojc/kp) or [jq](https://stedolan.github.io/jq/).
 * JSON input to facilitate automation via tools like [jsonify](https://github.com/fgeller/jsonify).
-* Configure brokers with the `KT_BROKERS` environment variable.
+* Configure brokers and authentication  with the `KT_BROKERS` and `KT_AUTH` environment variables.
 * Fast start up time.
 * No buffering of output.
 * Binary keys and payloads can be passed and presented in base64 or hex encoding.
@@ -44,7 +44,8 @@ $ echo 'Alice wins Oscar' | hkt produce -topic actor-news -literal
   "partition": 0,
   "startOffset": 0
 }
-$ echo 'Bob wins Oscar' | hkt produce -tlsca myca.pem -tlscert myclientcert.pem -tlscertkey mycertkey.pem -topic actor-news -literal
+
+$ echo 'Bob wins Oscar' | kt produce -topic actor-news -literal
 {
   "count": 1,
   "partition": 0,
@@ -233,3 +234,55 @@ Alternatively, the usual way via the go tool, for example:
             admin          basic cluster administration.
 
     Use "hkt [command] -help" for for information about the command.
+
+    Authentication:
+
+    Authentication with Kafka can be configured via a JSON file.
+    You can set the file name via an "-auth" flag to each command or
+    set it via the environment variable KT_AUTH.
+
+## Authentication / Encryption
+
+Authentication configuration is possibly via a JSON file. You indicate the mode
+of authentication you need and provide additional information as required for
+your mode. You pass the path to your configuration file via the `-auth` flag to
+each command individually, or set it via the environment variable `KT_AUTH`.
+
+### TLS
+
+Required fields:
+
+ - `mode`: This needs to be set to `TLS`
+ - `client-certificate`: Path to your certificate
+ - `client-certificate-key`: Path to your certificate key
+ - `ca-certificate`: Path to your CA certificate
+
+Example for an authorization configuration that is used for the system tests:
+
+
+    {
+        "mode": "TLS",
+        "client-certificate": "test-secrets/kt-test.crt",
+        "client-certificate-key": "test-secrets/kt-test.key",
+        "ca-certificate": "test-secrets/snakeoil-ca-1.crt"
+    }
+
+### TLS one-way
+
+Required fields:
+
+ - `mode`: This needs to be set to `TLS-1way`
+
+Example:
+
+
+    {
+        "mode": "TLS-1way",
+    }
+
+### Other modes
+
+Please create an
+[issue](https://github.com/heetch/hkt/issues/new) with details for the mode that you need.
+
+

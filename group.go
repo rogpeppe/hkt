@@ -388,8 +388,8 @@ func (cmd *groupCmd) connect(broker *sarama.Broker) error {
 	return nil
 }
 
-var groupDocString = `
-The value for -brokers can also be set with the environment variable KT_BROKERS.
+var groupDocString = fmt.Sprintf(`
+The value for -brokers can also be set with the environment variable %s.
 The value supplied on the command line takes precedence over the environment variable.
 
 The group command can be used to list groups, their offsets and lag and to reset a group's offset.
@@ -419,4 +419,4 @@ kt group -reset 23 -topic fav-topic -group specials -partitions 2
 To reset a consumer group's offset for all partitions:
 
 kt group -reset newest -topic fav-topic -group specials -partitions all
-`
+`, ENV_BROKERS)

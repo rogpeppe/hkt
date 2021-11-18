@@ -12,7 +12,7 @@ type command interface {
 	run(args []string) error
 }
 
-var usageMessage = `hkt is a tool for Kafka.
+var usageMessage = fmt.Sprintf(`hkt is a tool for Kafka.
 
 Usage:
 
@@ -24,12 +24,19 @@ The commands are:
 	produce    produce messages.
 	topic      topic information.
 	group      consumer group information and modification.
-	admin      basic cluster administration.
+	admin	   basic cluster administration.
+	version	   for details on what version you are running.
 
 Use "hkt [command] -help" for for information about the command.
 
+Authentication:
+
+Authentication with Kafka can be configured via a JSON file.
+You can set the file name via an "-auth" flag to each command or
+set it via the environment variable %s.
+
 More at https://github.com/heetch/hkt
-`
+`, ENV_AUTH)
 
 var commands = map[string]command{
 	"consume": &consumeCmd{},
@@ -37,6 +44,7 @@ var commands = map[string]command{
 	"topic":   &topicCmd{},
 	"group":   &groupCmd{},
 	"admin":   &adminCmd{},
+	"version": &versionCmd{},
 }
 
 var errSilent = fmt.Errorf("silent error; you should not be seeing this")

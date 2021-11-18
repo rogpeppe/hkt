@@ -1,4 +1,5 @@
-kt admin -createtopic $topic -topicdetail topic-detail.json
+
+kt admin -verbose -createtopic $topic -topicdetail topic-detail.json
 
 stdin produce-stdin.json
 kt produce -valuecodec string -topic $topic

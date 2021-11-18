@@ -22,6 +22,14 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
+const (
+	ENV_AUTH          = "KT_AUTH"
+	ENV_ADMIN_TIMEOUT = "KT_ADMIN_TIMEOUT"
+	ENV_BROKERS       = "KT_BROKERS"
+	ENV_TOPIC         = "KT_TOPIC"
+	ENV_REGISTRY      = "KT_REGISTRY"
+)
+
 var (
 	invalidClientIDCharactersRegExp = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
 )
@@ -40,9 +48,8 @@ type commonFlags struct {
 	verbose      bool
 	version      sarama.KafkaVersion
 	tlsRequested bool
-	tlsCA        string
-	tlsCert      string
-	tlsCertKey   string
+	auth         authConfig
+	authFile     string
 
 	brokerStrs []string
 }
@@ -63,9 +70,7 @@ func (f *commonFlags) addFlags(flags *flag.FlagSet) {
 	flags.Var(listFlag{&f.brokerStrs}, "brokers", "Comma-separated list of brokers.  Each broker definition may optionally contain a port number. The port defaults to 9092 when omitted.")
 	flags.Var(kafkaVersionFlag{v: &f.version}, "version", "Kafka protocol version")
 	flags.BoolVar(&f.tlsRequested, "tls", false, "Request server-side TLS without client-side.")
-	flags.StringVar(&f.tlsCA, "tlsca", "", "Path to the TLS certificate authority file")
-	flags.StringVar(&f.tlsCert, "tlscert", "", "Path to the TLS client certificate file")
-	flags.StringVar(&f.tlsCertKey, "tlscertkey", "", "Path to the TLS client certificate key file")
+	flags.StringVar(&f.authFile, "auth", "", "Path to auth configuration file. It can also be set via KT_AUTH env variable")
 	flags.BoolVar(&f.verbose, "verbose", false, "More verbose logging to stderr.")
 }
 
@@ -82,17 +87,12 @@ func (f *commonFlags) saramaConfig(name string) (*sarama.Config, error) {
 	}
 	cfg.ClientID = "kt-" + name + "-" + sanitizeUsername(username)
 
-	tlsConfig, err := setUpCerts(f.tlsCert, f.tlsCA, f.tlsCertKey)
-	if err != nil {
-		return nil, fmt.Errorf("cannot set up certificates: %v", err)
+	if err = readAuthFile(f.authFile, os.Getenv(ENV_AUTH), &f.auth); err != nil {
+		return nil, fmt.Errorf("failed to read auth file: %w", err)
 	}
-	if tlsConfig == nil && f.tlsRequested {
-		// client-side not configured, but server-side TLS requested
-		tlsConfig = &tls.Config{}
-	}
-	if tlsConfig != nil {
-		cfg.Net.TLS.Enable = true
-		cfg.Net.TLS.Config = tlsConfig
+
+	if err = setupAuth(f.auth, cfg); err != nil {
+		return nil, fmt.Errorf("failed to setup auth: %w", err)
 	}
 	if f.verbose {
 		fmt.Fprintf(os.Stderr, "sarama client configuration %#v\n", cfg)
@@ -295,4 +295,95 @@ func min(x, y int64) int64 {
 		return x
 	}
 	return y
+}
+
+type authConfig struct {
+	Mode              string `json:"mode"`
+	CACert            string `json:"ca-certificate"`
+	ClientCert        string `json:"client-certificate"`
+	ClientCertKey     string `json:"client-certificate-key"`
+	SASLPlainUser     string `json:"sasl_plain_user"`
+	SASLPlainPassword string `json:"sasl_plain_password"`
+}
+
+func setupAuth(auth authConfig, saramaCfg *sarama.Config) error {
+	if auth.Mode == "" {
+		return nil
+	}
+
+	switch auth.Mode {
+	case "TLS":
+		return setupAuthTLS(auth, saramaCfg)
+	case "TLS-1way":
+		return setupAuthTLS1Way(auth, saramaCfg)
+	case "SASL":
+		return setupSASL(auth, saramaCfg)
+	default:
+		return fmt.Errorf("unsupport auth mode: %#v", auth.Mode)
+	}
+}
+
+func setupSASL(auth authConfig, saramaCfg *sarama.Config) error {
+	saramaCfg.Net.SASL.Enable = true
+	saramaCfg.Net.SASL.User = auth.SASLPlainUser
+	saramaCfg.Net.SASL.Password = auth.SASLPlainPassword
+	return nil
+}
+
+func setupAuthTLS1Way(auth authConfig, saramaCfg *sarama.Config) error {
+	saramaCfg.Net.TLS.Enable = true
+	saramaCfg.Net.TLS.Config = &tls.Config{}
+	return nil
+}
+
+func setupAuthTLS(auth authConfig, saramaCfg *sarama.Config) error {
+	if auth.CACert == "" || auth.ClientCert == "" || auth.ClientCertKey == "" {
+		return fmt.Errorf("client-certificate, client-certificate-key and ca-certificate are required - got auth=%#v", auth)
+	}
+
+	caString, err := ioutil.ReadFile(auth.CACert)
+	if err != nil {
+		return fmt.Errorf("failed to read ca-certificate err=%v", err)
+	}
+
+	caPool := x509.NewCertPool()
+	ok := caPool.AppendCertsFromPEM(caString)
+	if !ok {
+		return fmt.Errorf("unable to add ca-certificate at %s to certificate pool", auth.CACert)
+	}
+
+	clientCert, err := tls.LoadX509KeyPair(auth.ClientCert, auth.ClientCertKey)
+	if err != nil {
+		return err
+	}
+
+	tlsCfg := &tls.Config{RootCAs: caPool, Certificates: []tls.Certificate{clientCert}}
+	tlsCfg.BuildNameToCertificate()
+
+	saramaCfg.Net.TLS.Enable = true
+	saramaCfg.Net.TLS.Config = tlsCfg
+
+	return nil
+}
+
+func readAuthFile(argFN string, envFN string, target *authConfig) error {
+	if argFN == "" && envFN == "" {
+		return nil
+	}
+
+	fn := argFN
+	if fn == "" {
+		fn = envFN
+	}
+
+	byts, err := ioutil.ReadFile(fn)
+	if err != nil {
+		return fmt.Errorf("failed to read auth file: %w", err)
+	}
+
+	if err := json.Unmarshal(byts, target); err != nil {
+		return fmt.Errorf("failed to unmarshal auth file: %w", err)
+	}
+
+	return nil
 }

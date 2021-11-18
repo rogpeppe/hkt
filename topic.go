@@ -16,16 +16,19 @@ type topicCmd struct {
 	partitions bool
 	leaders    bool
 	replicas   bool
+	config     bool
 	pretty     bool
 	filterStr  string
 
 	filter *regexp.Regexp
 	client sarama.Client
+	admin  sarama.ClusterAdmin
 }
 
 type topic struct {
-	Name       string      `json:"name"`
-	Partitions []partition `json:"partitions,omitempty"`
+	Name       string            `json:"name"`
+	Partitions []partition       `json:"partitions,omitempty"`
+	Config     map[string]string `json:"config,omitempty"`
 }
 
 type partition struct {
@@ -44,6 +47,7 @@ func (cmd *topicCmd) addFlags(flags *flag.FlagSet) {
 	flags.BoolVar(&cmd.replicas, "replicas", false, "Include replica ids per partition.")
 	flags.StringVar(&cmd.filterStr, "filter", "", "Regex to filter topics by name.")
 	flags.BoolVar(&cmd.pretty, "pretty", true, "Control output pretty printing.")
+	flags.BoolVar(&cmd.config, "config", false, "Include topic configuration.")
 	flags.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage of topic:")
 		flags.PrintDefaults()
@@ -71,6 +75,7 @@ func (cmd *topicCmd) run(as []string) error {
 		return err
 	}
 	defer cmd.client.Close()
+	defer cmd.admin.Close()
 
 	all, err := cmd.client.Topics()
 	if err != nil {
@@ -108,16 +113,32 @@ func (cmd *topicCmd) connect() error {
 	if cmd.client, err = sarama.NewClient(cmd.brokers(), cfg); err != nil {
 		return fmt.Errorf("failed to create client: %v", err)
 	}
+	if cmd.admin, err = sarama.NewClusterAdmin(cmd.brokers(), cfg); err != nil {
+		return fmt.Errorf("failed to create cluster admin err: %w", err)
+	}
 	return nil
 }
 
 func (cmd *topicCmd) readTopic(name string) (topic, error) {
 	var (
-		err error
-		ps  []int32
-		led *sarama.Broker
-		top = topic{Name: name}
+		err           error
+		ps            []int32
+		led           *sarama.Broker
+		top           = topic{Name: name}
+		configEntries []sarama.ConfigEntry
 	)
+
+	if cmd.config {
+		resource := sarama.ConfigResource{Name: name, Type: sarama.TopicResource}
+		if configEntries, err = cmd.admin.DescribeConfig(resource); err != nil {
+			return top, err
+		}
+
+		top.Config = make(map[string]string)
+		for _, entry := range configEntries {
+			top.Config[entry.Name] = entry.Value
+		}
+	}
 
 	if !cmd.partitions {
 		return top, nil
@@ -161,6 +182,7 @@ func (cmd *topicCmd) readTopic(name string) (topic, error) {
 	return top, nil
 }
 
-var topicDocString = `
-The values for -brokers can also be set via the environment variable KT_BROKERS respectively.
-The values supplied on the command line win over environment variable values.`
+var topicDocString = fmt.Sprintf(`
+The values for -brokers can also be set via the environment variable %s respectively.
+The values supplied on the command line win over environment variable values.`,
+	ENV_BROKERS)

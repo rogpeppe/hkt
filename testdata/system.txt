@@ -1,3 +1,4 @@
+
 # 0
 kt admin -createtopic $topic -topicdetail 0-admin/topic.json
 ! stderr .
