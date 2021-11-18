@@ -1,0 +1,33 @@
+# Schema is registered in system_test.go
+kt admin -createtopic $topic -topicdetail topic-detail.json
+
+stdin produce-using-schema-stdin.json
+kt produce -topic $topic -valuecodec avro -value-avro-record-name $recordName
+
+stdin produce-using-file-stdin.json
+kt produce -topic $topic -value-avro-schema alt-r.avsc -value-avro-record-name $recordName
+
+kt consume -valuecodec avro $topic
+cmp stdout consume-stdout.json
+
+-- topic-detail.json --
+{"NumPartitions": 1, "ReplicationFactor": 1}
+-- produce-using-schema-stdin.json --
+{"key":"k1","value":{"Bar":1.131416},"time":"2021-11-16T01:01:01Z"}
+-- alt-r.avsc --
+{
+  "type": "record",
+  "name": "AltR",
+  "fields": [
+     {
+        "name": "Bar",
+        "type": "float",
+        "default": 0
+     }
+  ]
+}
+-- produce-using-file-stdin.json --
+{"key":"k1","value":{"Bar":2.122121},"time":"2021-11-16T01:01:02Z"}
+-- consume-stdout.json --
+{"partition":0,"offset":0,"key":"k1","value":{"Bar":1.131416},"time":"2021-11-16T01:01:01Z"}
+{"partition":0,"offset":1,"key":"k1","value":{"Bar":2.122121},"time":"2021-11-16T01:01:02Z"}

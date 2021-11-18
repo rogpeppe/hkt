@@ -213,7 +213,7 @@ $ hkt <command> <option>
 
 <details><summary>Produce and consume Avro formatted messages</summary>
 
-Provided this schema for this `subject` `actors-value` in Schema Registry `http://localhost:8081`:
+Provided the following schema for this `subject` `actors-value` in Schema Registry `http://localhost:8081`:
 
 ```json
 {"type": "record", "name": "Actor", "fields": [{"type": "string", "name": "FirstName"}]}
@@ -225,7 +225,12 @@ It produces the Avro formatted message:
 $ echo '{"value": {"FirstName": "Ryan"}, "key": "id-42"}' | hkt produce -topic actors -registry http://localhost:8081 -valuecodec avro
 ```
 
-That it may be consumed:
+It can be also send using a file:
+```sh
+$ echo '{"value": {"FirstName": "Arnold"}, "key": "id-43"}' | hkt produce -topic actors -registry http://localhost:8081 -value-avro-schema Actor.avsc
+```
+
+That they may be consumed:
 ```sh
 $ hkt consume -registry http://localhost:8081 -valuecodec avro actors
 {
@@ -237,7 +242,21 @@ $ hkt consume -registry http://localhost:8081 -valuecodec avro actors
   },
   "time": "2021-11-16T01:01:01Z"
 }
+{
+  "partition": 0,
+  "offset": 1,
+  "key": "id-43",
+  "value": {
+    "FirstName": "Arnold"
+  },
+  "time": "2021-11-17T01:01:01Z"
+}
 ```
+
+Not only `TopicNameStrategy` is supported but `TopicRecordNameStrategy` is supported to find the subject name for
+a schema using `-value-avro-record-name`. This can be used in conjunction with `-value-avro-schema` or get
+latest version of the schema from the Schema Registry without providing any parameter.
+
 </details>
 
 

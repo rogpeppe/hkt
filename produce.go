@@ -97,11 +97,19 @@ func (cmd *produceCmd) run(args []string) error {
 	cmd.partitioner = partitioner
 	var err error
 
+	if cmd.avscFile != "" {
+		// Override -valuecodec flag
+		cmd.valueCodecType = "avro"
+		if err := cmd.loadSchemaFile(cmd.avscFile); err != nil {
+			return fmt.Errorf("cannot load AVSC avro file: %w", err)
+		}
+	}
+
 	if cmd.valueCodecType == "avro" {
 		if cmd.registryURL == "" {
 			return fmt.Errorf("-registry or $%s required for avro codec type", ENV_REGISTRY)
 		}
-		cmd.registry, err = avroregistry.New(avroregistry.Params{ServerURL: cmd.registryURL})
+		cmd.avroRegistry, err = avroregistry.New(avroregistry.Params{ServerURL: cmd.registryURL})
 		if err != nil {
 			return fmt.Errorf("cannot make Avro registry client: %v", err)
 		}
@@ -316,9 +324,13 @@ Keep reading input from stdin until interrupted (via ^C).
 
 AVRO
 
-It can produce messages using Avro format provided -registry flag and -valuecodec avro. In order to know
-which schema to use, it looks for latest version in the schema registry whose subject is "${topic}-value"
-following Kafka Schema Registry TopicNameStrategy.
+It can produce messages using Avro format provided -registry flag and -valuecodec avro.
+
+ In order to know which schema to use, there are several ways:
+
+1. Kafka Schema Registry TopicNameStrategy
+
+It looks for latest version in the schema registry whose subject be "${topic}-value".
 
 For example, provided this schema in the Registry whose subject is "topic-1-value":
 
@@ -329,4 +341,26 @@ Running the following command:
    $ echo '{"key": "id-42", "value": {"Field": 1}}' | hkt produce -topic topic-1 -registry http://localhost:8081 -valuecodec avro
 
 Sends Avro formatted message to the topic.
+
+2. Kafka Schema Registry TopicRecordNameStrategy
+
+It looks for latest version in the schema registry whose subject be "${topic}-${recordName}".
+
+For example, provided this schema in the Registry whose subject is "topic-2-r":
+
+   {"type": "record", "name": "R", "fields": [{"type": "float", "name": "Field"}]}
+
+Running the following command:
+
+   $ echo '{"key": "id-43", "value": {"Field": 1.14}}' | hkt produce -topic topic-2 -registry http://localhost:8081 -valuecodec avro -value-avro-record-name r
+
+Sends Avro formatted message to the topic.
+
+If we want to use a specific version from the schema, we can always provide the AVSC file instead.
+
+Running the following command:
+
+   $ echo '{"key": "id-44", "value": {"Band": "cloud nothings"}}' | hkt produce -topic topic-3 -registry http://localhost:8081 -value-avro-schema band.avsc
+
+In order to know the subject, "-value-avro-record-name" can be also used.
 `, ENV_BROKERS, ENV_REGISTRY)

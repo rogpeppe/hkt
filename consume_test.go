@@ -864,13 +864,13 @@ func TestConsumeAvroMessage(t *testing.T) {
 	reg := newTestRegistry(c)
 	schemaID := reg.register(c, wType)
 
-	cmd := consumeCmd{coder: coder{registry: reg.registry}}
+	cmd := consumeCmd{coder: coder{avroRegistry: reg.registry}}
 
-	enc, err := cmd.encoderForType("string")
+	enc, err := cmd.encoderForType("key", "string")
 	c.Assert(err, qt.IsNil)
 	cmd.encodeKey = enc
 
-	enc, err = cmd.encoderForType("avro")
+	enc, err = cmd.encoderForType("value", "avro")
 	c.Assert(err, qt.IsNil)
 	cmd.encodeValue = enc
 
