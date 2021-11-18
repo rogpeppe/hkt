@@ -864,7 +864,7 @@ func TestConsumeAvroMessage(t *testing.T) {
 	reg := newTestRegistry(c)
 	schemaID := reg.register(c, wType)
 
-	cmd := consumeCmd{registry: reg.registry}
+	cmd := consumeCmd{coder: coder{registry: reg.registry}}
 
 	enc, err := cmd.encoderForType("string")
 	c.Assert(err, qt.IsNil)
@@ -969,15 +969,19 @@ func (reg *testRegistry) register(c *qt.C, schema *avro.Type) int64 {
 
 func (reg *testRegistry) fakeServerHandler(w http.ResponseWriter, r *http.Request) {
 	var body []byte
-	if r.Method == http.MethodGet && strings.HasPrefix(r.RequestURI, "/schemas/ids") {
+	if r.Method == http.MethodGet &&
+		(strings.HasPrefix(r.RequestURI, "/schemas/ids") || strings.HasPrefix(r.RequestURI, "/subjects/")) {
 		var err error
 		body, err = json.Marshal(struct {
-			Schema string `json:"schema"`
-		}{reg.schema})
+			ID      int    `json:"id"`
+			Version int    `json:"version"`
+			Schema  string `json:"schema"`
+		}{ID: 1, Version: 1, Schema: reg.schema})
 		if err != nil {
 			panic(err)
 		}
 	}
+
 	w.Header().Set("Content-Type", "application/vnd.schemaregistry.v1+json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(body)

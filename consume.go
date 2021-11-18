@@ -21,8 +21,8 @@ import (
 
 type consumeCmd struct {
 	commonFlags
+	coder
 
-	topic          string
 	timeout        time.Duration
 	valueCodecType string
 	keyCodecType   string
@@ -37,9 +37,6 @@ type consumeCmd struct {
 	encodeKey     func([]byte) (json.RawMessage, error)
 	client        sarama.Client
 	consumer      sarama.Consumer
-
-	registryURL string
-	registry    *avroregistry.Registry
 }
 
 // consumedMessage defines the format that's used to
@@ -54,6 +51,7 @@ type consumedMessage struct {
 
 func (cmd *consumeCmd) addFlags(flags *flag.FlagSet) {
 	cmd.commonFlags.addFlags(flags)
+	cmd.coder.addFlags(flags)
 	cmd.partitioners = []string{"sarama"}
 
 	flags.Var(listFlag{&cmd.partitioners}, "partitioners", "Comma-separated list of partitioners to consider when using the key flag. See below for details")
@@ -63,7 +61,6 @@ func (cmd *consumeCmd) addFlags(flags *flag.FlagSet) {
 	flags.BoolVar(&cmd.follow, "f", false, "Follow topic by waiting new messages (default is to stop at end of topic)")
 	flags.StringVar(&cmd.valueCodecType, "valuecodec", "json", "Present message value as (json|string|hex|base64|avro), defaults to json.")
 	flags.StringVar(&cmd.keyCodecType, "keycodec", "string", "Present message key as (string|hex|base64), defaults to string.")
-	flags.StringVar(&cmd.registryURL, "registry", "", "The Avro schema registry server URL.")
 
 	flags.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage: hkt consume [flags] TOPIC [OFFSETS]")
@@ -100,7 +97,7 @@ func (cmd *consumeCmd) run(args []string) error {
 	var err error
 	if cmd.valueCodecType == "avro" {
 		if cmd.registryURL == "" {
-			return fmt.Errorf("-registry or $KT_REGISTRY is required for avro codec type")
+			return fmt.Errorf("-registry or $%s required for avro codec type", ENV_REGISTRY)
 		}
 		cmd.registry, err = avroregistry.New(avroregistry.Params{ServerURL: cmd.registryURL})
 		if err != nil {
@@ -492,7 +489,7 @@ func partitionerFunc(makePartitioner sarama.PartitionerConstructor) func(key []b
 }
 
 func (cmd *consumeCmd) keyBytes(key string) ([]byte, error) {
-	dec, err := decoderForType(cmd.keyCodecType)
+	dec, err := cmd.decoderForType("key", cmd.keyCodecType)
 	if err != nil {
 		// Shouldn't be able to happen, but be defensive.
 		return nil, err

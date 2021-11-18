@@ -5,9 +5,8 @@ require (
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
 	github.com/burdiyan/kafkautil v0.0.0-20190131162249-eaf83ed22d5b
 	github.com/frankban/quicktest v1.14.0
-	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-cmp v0.5.6
-	github.com/heetch/avro v0.2.7
+	github.com/heetch/avro v0.3.0
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/linkedin/goavro/v2 v2.10.1
 	github.com/lovoo/goka v1.0.6 // indirect

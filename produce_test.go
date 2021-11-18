@@ -7,6 +7,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	qt "github.com/frankban/quicktest"
+	"github.com/heetch/avro"
 )
 
 func TestProduceParseArgsUsesEnvVar(t *testing.T) {
@@ -50,20 +51,16 @@ func TestProduceParseArgsFlagsOverrideEnv(t *testing.T) {
 
 func TestMakeSaramaMessage(t *testing.T) {
 	c := qt.New(t)
-	mustDecoderForType := func(typ string) func(json.RawMessage) ([]byte, error) {
-		dec, err := decoderForType(typ)
-		c.Assert(err, qt.Equals, nil)
-		return dec
+	mustDecodersForType := func(p *produceCmd, typ string) (func(json.RawMessage) ([]byte, error), func(json.RawMessage) ([]byte, error)) {
+		keyDec, err := p.decoderForType("key", typ)
+		c.Assert(err, qt.IsNil)
+		valueDec, err := p.decoderForType("value", typ)
+		c.Assert(err, qt.IsNil)
+		return keyDec, valueDec
 	}
-	stringDecoder := mustDecoderForType("string")
-	hexDecoder := mustDecoderForType("hex")
-	base64Decoder := mustDecoderForType("base64")
-	jsonDecoder := mustDecoderForType("json")
 
-	target := &produceCmd{
-		decodeKey:   stringDecoder,
-		decodeValue: stringDecoder,
-	}
+	target := &produceCmd{}
+	target.decodeKey, target.decodeValue = mustDecodersForType(target, "string")
 	key, value := `"key"`, `"value"`
 	msg := producerMessage{Key: json.RawMessage(key), Value: json.RawMessage(value)}
 	actual, err := target.makeSaramaMessage(msg)
@@ -71,7 +68,7 @@ func TestMakeSaramaMessage(t *testing.T) {
 	c.Assert(encoderStr(actual.Key), qt.Equals, "key")
 	c.Assert(encoderStr(actual.Value), qt.Equals, "value")
 
-	target.decodeKey, target.decodeValue = hexDecoder, hexDecoder
+	target.decodeKey, target.decodeValue = mustDecodersForType(target, "hex")
 	key, value = `"41"`, `"42"`
 	msg = producerMessage{Key: json.RawMessage(key), Value: json.RawMessage(value)}
 	actual, err = target.makeSaramaMessage(msg)
@@ -79,7 +76,7 @@ func TestMakeSaramaMessage(t *testing.T) {
 	c.Assert(encoderStr(actual.Key), qt.Equals, "A")
 	c.Assert(encoderStr(actual.Value), qt.Equals, "B")
 
-	target.decodeKey, target.decodeValue = base64Decoder, base64Decoder
+	target.decodeKey, target.decodeValue = mustDecodersForType(target, "base64")
 	key, value = `"aGFucw=="`, `"cGV0ZXI="`
 	msg = producerMessage{Key: json.RawMessage(key), Value: json.RawMessage(value)}
 	actual, err = target.makeSaramaMessage(msg)
@@ -87,13 +84,53 @@ func TestMakeSaramaMessage(t *testing.T) {
 	c.Assert(encoderStr(actual.Key), qt.Equals, "hans")
 	c.Assert(encoderStr(actual.Value), qt.Equals, "peter")
 
-	target.decodeKey, target.decodeValue = jsonDecoder, jsonDecoder
+	target.decodeKey, target.decodeValue = mustDecodersForType(target, "json")
 	key, value = `{"x":1}`, `[1,2]`
 	msg = producerMessage{Key: json.RawMessage(key), Value: json.RawMessage(value)}
 	actual, err = target.makeSaramaMessage(msg)
 	c.Assert(err, qt.Equals, nil)
 	c.Assert(encoderStr(actual.Key), qt.Equals, `{"x":1}`)
 	c.Assert(encoderStr(actual.Value), qt.Equals, `[1,2]`)
+
+	c.Run("avro", func(c *qt.C) {
+		type record struct {
+			A int
+			B int
+		}
+
+		_, wType, err := avro.Marshal(record{})
+		c.Assert(err, qt.IsNil)
+
+		reg := newTestRegistry(c)
+		schemaID := reg.register(c, wType)
+
+		cmd := produceCmd{
+			coder: coder{
+				topic:    "a",
+				registry: reg.registry,
+			},
+		}
+
+		cmd.decodeKey, err = cmd.decoderForType("key", "string")
+		c.Assert(err, qt.IsNil)
+		cmd.decodeValue, err = cmd.decoderForType("value", "avro")
+		c.Assert(err, qt.IsNil)
+
+		key, value := `"12"`, `{"A": 40, "B": 20}`
+		msg := producerMessage{Key: json.RawMessage(key), Value: json.RawMessage(value)}
+		actual, err := cmd.makeSaramaMessage(msg)
+		c.Assert(err, qt.IsNil)
+		c.Assert(encoderStr(actual.Key), qt.Equals, "12")
+		// In the byte slice below:
+		//       0: Starting schema ID magic byte
+		//       1: 4 bytes Schema ID
+		//	80: A=40
+		//	40: B=20
+		expectedBlob := []byte{0, 0, 0, 0, byte(uint8(schemaID)), 80, 40}
+		gotValue, err := actual.Value.Encode()
+		c.Assert(err, qt.IsNil)
+		c.Assert(gotValue, qt.ContentEquals, expectedBlob)
+	})
 }
 
 func TestDeserializeLines(t *testing.T) {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/json"
 	"flag"
@@ -11,7 +12,10 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
+	qt "github.com/frankban/quicktest"
 	"github.com/google/go-cmp/cmp"
+	"github.com/heetch/avro"
+	"github.com/heetch/avro/avroregistry"
 	"github.com/rogpeppe/go-internal/testscript"
 )
 
@@ -26,7 +30,8 @@ func TestMain(m *testing.M) {
 }
 
 const (
-	testBrokerAddr = "localhost:9092"
+	testBrokerAddr   = "localhost:9092"
+	testRegistryAddr = "http://localhost:8081"
 )
 
 func TestSystem(t *testing.T) {
@@ -48,9 +53,11 @@ func TestSystem(t *testing.T) {
 		},
 		Setup: func(e *testscript.Env) error {
 			topic := randomString(6)
+			deregisterFn := register(t, topic)
 			e.Vars = append(e.Vars,
 				"topic="+topic,
 				ENV_BROKERS+"="+testBrokerAddr,
+				ENV_REGISTRY+"="+testRegistryAddr,
 				"now="+time.Now().UTC().Format(time.RFC3339),
 			)
 			e.Defer(func() {
@@ -58,6 +65,7 @@ func TestSystem(t *testing.T) {
 					t.Errorf("cannot delete topic %q from local Kafka: %v", topic, err)
 				}
 			})
+			e.Defer(deregisterFn)
 			return nil
 		},
 		UpdateScripts: *updateFlag,
@@ -70,6 +78,34 @@ func randomString(length int) string {
 		panic(fmt.Errorf("cannot generate random numbers: %v", err))
 	}
 	return fmt.Sprintf("hkt-%x", buf)
+}
+
+// register registers a given schema to testRegistry using ${topic}-value as subject
+// returns the function to call when the test ends.
+func register(t *testing.T, topic string) func() {
+	c := qt.New(t)
+	ctx := context.Background()
+
+	reg, err := avroregistry.New(avroregistry.Params{
+		ServerURL: testRegistryAddr,
+	})
+	c.Check(err, qt.IsNil)
+
+	type R struct {
+		Foo int
+	}
+
+	typ, err := avro.TypeOf(R{})
+	c.Check(err, qt.IsNil)
+
+	subject := topic + "-value"
+	_, err = reg.Register(ctx, subject, typ)
+	c.Check(err, qt.IsNil)
+
+	return func() {
+		err := reg.DeleteSubject(ctx, subject)
+		c.Check(err, qt.IsNil)
+	}
 }
 
 // cmpenvjson implements the cmpenvjson testscript command.

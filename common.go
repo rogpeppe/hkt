@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -19,6 +20,9 @@ import (
 	"sync"
 
 	"github.com/Shopify/sarama"
+	"github.com/heetch/avro"
+	"github.com/heetch/avro/avroregistry"
+	goavro "github.com/linkedin/goavro/v2"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -260,7 +264,21 @@ func setFlagsFromEnv(fs *flag.FlagSet, flags map[string]string) error {
 	return nil
 }
 
-func decoderForType(typ string) (func(m json.RawMessage) ([]byte, error), error) {
+// coder implements the common data required for encoding/decoding data
+type coder struct {
+	topic       string
+	registryURL string
+
+	registry *avroregistry.Registry
+}
+
+// addFlags adds flags required for encoding and decoding.
+func (c *coder) addFlags(flags *flag.FlagSet) {
+	flags.StringVar(&c.registryURL, "registry", "", "The Avro schema registry server URL.")
+}
+
+// decoderForType returns a function to decode key or value depending of the expected format defined in typ
+func (c *coder) decoderForType(keyOrValue, typ string) (func(m json.RawMessage) ([]byte, error), error) {
 	var dec func(s string) ([]byte, error)
 	switch typ {
 	case "json":
@@ -276,6 +294,8 @@ func decoderForType(typ string) (func(m json.RawMessage) ([]byte, error), error)
 		dec = func(s string) ([]byte, error) {
 			return []byte(s), nil
 		}
+	case "avro":
+		return c.makeAvroDecoder(keyOrValue), nil
 	default:
 		return nil, fmt.Errorf(`unsupported decoder %#v, only json, string, hex and base64 are supported`, typ)
 	}
@@ -286,6 +306,48 @@ func decoderForType(typ string) (func(m json.RawMessage) ([]byte, error), error)
 		}
 		return dec(s)
 	}, nil
+}
+
+func (c *coder) makeAvroDecoder(keyOrValue string) func(m json.RawMessage) ([]byte, error) {
+	return func(m json.RawMessage) ([]byte, error) {
+		// Subject using Kafka Schema Registry for value
+		subject := c.topic + "-" + keyOrValue
+
+		ctx := context.Background()
+		sch, err := c.registry.Schema(ctx, subject, "latest")
+		if err != nil {
+			return nil, err
+		}
+
+		// TODO: Cache schema
+		t, err := avro.ParseType(sch.Schema)
+		if err != nil {
+			return nil, err
+		}
+
+		// Canonicalize the schema to remove default values and logical types
+		// to work around https://github.com/linkedin/goavro/issues/198
+		inCodec, err := goavro.NewCodec(t.CanonicalString(0))
+		if err != nil {
+			return nil, err
+		}
+
+		inNative, _, err := inCodec.NativeFromTextual(m)
+		if err != nil {
+			return nil, err
+		}
+
+		inBlob, err := inCodec.BinaryFromNative(nil, inNative)
+		if err != nil {
+			return nil, err
+		}
+
+		enc := c.registry.Encoder(subject)
+		buf := make([]byte, 0, 512)
+		buf = enc.AppendSchemaID(buf, sch.ID)
+
+		return append(buf, inBlob...), nil
+	}
 }
 
 var nullJSON = json.RawMessage("null")

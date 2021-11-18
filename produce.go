@@ -11,11 +11,13 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/burdiyan/kafkautil"
+	"github.com/heetch/avro/avroregistry"
 )
 
 type produceCmd struct {
 	commonFlags
-	topic           string
+	coder
+
 	batch           int
 	timeout         time.Duration
 	pretty          bool
@@ -60,6 +62,7 @@ var compressionTypes = map[string]sarama.CompressionCodec{
 
 func (cmd *produceCmd) addFlags(flags *flag.FlagSet) {
 	cmd.commonFlags.addFlags(flags)
+	cmd.coder.addFlags(flags)
 
 	flags.StringVar(&cmd.topic, "topic", "", "Topic to produce to (required).")
 	flags.IntVar(&cmd.batch, "batch", 1, "Max size of a batch before sending it off")
@@ -69,7 +72,7 @@ func (cmd *produceCmd) addFlags(flags *flag.FlagSet) {
 	flags.StringVar(&cmd.compressionType, "compression", "none", "Kafka message compression codec [gzip|snappy|lz4]")
 	flags.StringVar(&cmd.partitionerType, "partitioner", "sarama", "Optional partitioner to use. Available: sarama, std, random, roundrobin, murmur2")
 	flags.StringVar(&cmd.keyCodecType, "keycodec", "string", "Interpret message value as (string|hex|base64), defaults to string.")
-	flags.StringVar(&cmd.valueCodecType, "valuecodec", "json", "Interpret message value as (json|string|hex|base64), defaults to json.")
+	flags.StringVar(&cmd.valueCodecType, "valuecodec", "json", "Interpret message value as (json|string|hex|base64|avro), defaults to json.")
 	flags.IntVar(&cmd.maxLineLen, "maxline", 16*1024*1024, "Maximum length of input line")
 
 	flags.Usage = func() {
@@ -81,7 +84,8 @@ func (cmd *produceCmd) addFlags(flags *flag.FlagSet) {
 
 func (cmd *produceCmd) environFlags() map[string]string {
 	return map[string]string{
-		"brokers": "KT_BROKERS",
+		"brokers":  ENV_BROKERS,
+		"registry": ENV_REGISTRY,
 	}
 }
 
@@ -92,7 +96,17 @@ func (cmd *produceCmd) run(args []string) error {
 	}
 	cmd.partitioner = partitioner
 	var err error
-	cmd.decodeValue, err = decoderForType(cmd.valueCodecType)
+
+	if cmd.valueCodecType == "avro" {
+		if cmd.registryURL == "" {
+			return fmt.Errorf("-registry or $%s required for avro codec type", ENV_REGISTRY)
+		}
+		cmd.registry, err = avroregistry.New(avroregistry.Params{ServerURL: cmd.registryURL})
+		if err != nil {
+			return fmt.Errorf("cannot make Avro registry client: %v", err)
+		}
+	}
+	cmd.decodeValue, err = cmd.decoderForType("value", cmd.valueCodecType)
 	if err != nil {
 		return fmt.Errorf("bad -valuecodec argument: %v", err)
 	}
@@ -100,7 +114,7 @@ func (cmd *produceCmd) run(args []string) error {
 		// JSON for keys is not a good idea.
 		return fmt.Errorf("JSON key codec not supported")
 	}
-	cmd.decodeKey, err = decoderForType(cmd.keyCodecType)
+	cmd.decodeKey, err = cmd.decoderForType("key", cmd.keyCodecType)
 	if err != nil {
 		return fmt.Errorf("bad -keycodec argument: %v", err)
 	}
@@ -262,7 +276,7 @@ func (p producerPartitioner) MessageRequiresConsistency(m *sarama.ProducerMessag
 }
 
 var produceDocString = fmt.Sprintf(`
-The value for -brokers can also be set with the environment variable %s.
+The value for -brokers and -registry can also be set with the environment variables %s and %s respectively.
 The value supplied on the command line takes precedence over the environment variable.
 
 Input is read from stdin and separated by newlines.
@@ -275,7 +289,7 @@ like the following:
 
     {"key": "id-23", "value": "message content", "partition": 0}
 
-In case the input line cannot be interpeted as a JSON object the key and value
+In case the input line cannot be interpreted as a JSON object the key and value
 both default to the input line and partition to 0.
 
 Examples:
@@ -299,4 +313,20 @@ Keep reading input from stdin until interrupted (via ^C).
   $ hkt consume -topic greetings -timeout 1s -offsets 0:4-
   {"partition":0,"offset":4,"key":"hello.","message":"hello."}
   {"partition":0,"offset":5,"key":"bonjour.","message":"bonjour."}
-`, ENV_BROKERS)
+
+AVRO
+
+It can produce messages using Avro format provided -registry flag and -valuecodec avro. In order to know
+which schema to use, it looks for latest version in the schema registry whose subject is "${topic}-value"
+following Kafka Schema Registry TopicNameStrategy.
+
+For example, provided this schema in the Registry whose subject is "topic-1-value":
+
+   {"type": "record", "name": "R", "fields": [{"type": "int", "name": "Field"}]}
+
+Running the following command:
+
+   $ echo '{"key": "id-42", "value": {"Field": 1}}' | hkt produce -topic topic-1 -registry http://localhost:8081 -valuecodec avro
+
+Sends Avro formatted message to the topic.
+`, ENV_BROKERS, ENV_REGISTRY)
