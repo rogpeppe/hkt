@@ -17,7 +17,7 @@ import (
 	"sync"
 
 	"github.com/Shopify/sarama"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 const (
@@ -150,7 +150,7 @@ type printer struct {
 
 func newPrinter(pretty bool) *printer {
 	marshal := json.Marshal
-	if pretty && terminal.IsTerminal(1) {
+	if pretty && term.IsTerminal(1) {
 		marshal = func(i interface{}) ([]byte, error) { return json.MarshalIndent(i, "", "  ") }
 	}
 	return &printer{
