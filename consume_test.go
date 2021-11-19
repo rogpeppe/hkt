@@ -683,13 +683,17 @@ func TestConsume(t *testing.T) {
 	target.topic = "hans"
 	target.brokerStrs = []string{"localhost:9092"}
 
-	go target.consume(map[int32]resolvedInterval{
-		1: {1, 5},
-		2: {1, 5},
-	}, map[int32]int64{
-		1: 1,
-		2: 1,
-	})
+	go func() {
+		err := target.consume(map[int32]resolvedInterval{
+			1: {1, 5},
+			2: {1, 5},
+		}, map[int32]int64{
+			1: 1,
+			2: 1,
+		})
+		c.Check(err, qt.IsNil)
+	}()
+
 	defer close(closer)
 
 	var actual []tConsumePartition
@@ -984,7 +988,7 @@ func (reg *testRegistry) fakeServerHandler(w http.ResponseWriter, r *http.Reques
 
 	w.Header().Set("Content-Type", "application/vnd.schemaregistry.v1+json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+	_, _ = w.Write(body)
 }
 
 // createAvroMessage is a helper to create Avro message.
