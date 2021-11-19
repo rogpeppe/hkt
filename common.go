@@ -17,14 +17,13 @@ import (
 	"sync"
 
 	"github.com/Shopify/sarama"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 const (
 	ENV_AUTH          = "KT_AUTH"
 	ENV_ADMIN_TIMEOUT = "KT_ADMIN_TIMEOUT"
 	ENV_BROKERS       = "KT_BROKERS"
-	ENV_TOPIC         = "KT_TOPIC"
 	ENV_REGISTRY      = "KT_REGISTRY"
 )
 
@@ -151,7 +150,7 @@ type printer struct {
 
 func newPrinter(pretty bool) *printer {
 	marshal := json.Marshal
-	if pretty && terminal.IsTerminal(1) {
+	if pretty && term.IsTerminal(1) {
 		marshal = func(i interface{}) ([]byte, error) { return json.MarshalIndent(i, "", "  ") }
 	}
 	return &printer{
@@ -192,41 +191,6 @@ func sanitizeUsername(u string) string {
 	// Windows account can contain spaces or other special characters not supported
 	// in client ID. Keep the bare minimum and ditch the rest.
 	return invalidClientIDCharactersRegExp.ReplaceAllString(u, "")
-}
-
-// setUpCerts takes the paths to a tls certificate, CA, and certificate key in
-// a PEM format and returns a constructed tls.Config object.
-func setUpCerts(certPath, caPath, keyPath string) (*tls.Config, error) {
-	if certPath == "" && caPath == "" && keyPath == "" {
-		return nil, nil
-	}
-
-	if certPath == "" || caPath == "" || keyPath == "" {
-		return nil, fmt.Errorf("certificate, CA and key path are required - got cert=%#v ca=%#v key=%#v", certPath, caPath, keyPath)
-	}
-
-	caString, err := ioutil.ReadFile(caPath)
-	if err != nil {
-		return nil, err
-	}
-
-	caPool := x509.NewCertPool()
-	ok := caPool.AppendCertsFromPEM(caString)
-	if !ok {
-		return nil, fmt.Errorf("unable to add cert at %s to certificate pool", caPath)
-	}
-
-	clientCert, err := tls.LoadX509KeyPair(certPath, keyPath)
-	if err != nil {
-		return nil, err
-	}
-
-	bundle := &tls.Config{
-		RootCAs:      caPool,
-		Certificates: []tls.Certificate{clientCert},
-	}
-	bundle.BuildNameToCertificate()
-	return bundle, nil
 }
 
 // setFlagsFromEnv sets unset flags in fs from environment

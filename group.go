@@ -221,7 +221,7 @@ func (cmd *groupCmd) printGroupTopicOffset(out *printer, grp, top string, parts 
 		})
 	}
 	go func() {
-		wg.Wait()
+		_ = wg.Wait()
 		close(results)
 	}()
 	for res := range results {

@@ -683,13 +683,17 @@ func TestConsume(t *testing.T) {
 	target.topic = "hans"
 	target.brokerStrs = []string{"localhost:9092"}
 
-	go target.consume(map[int32]resolvedInterval{
-		1: {1, 5},
-		2: {1, 5},
-	}, map[int32]int64{
-		1: 1,
-		2: 1,
-	})
+	go func() {
+		err := target.consume(map[int32]resolvedInterval{
+			1: {1, 5},
+			2: {1, 5},
+		}, map[int32]int64{
+			1: 1,
+			2: 1,
+		})
+		c.Check(err, qt.IsNil)
+	}()
+
 	defer close(closer)
 
 	var actual []tConsumePartition
@@ -795,7 +799,6 @@ func (c tConsumer) HighWaterMarks() map[string]map[int32]int64 {
 
 func TestConsumeParseArgsUsesEnvVar(t *testing.T) {
 	c := qt.New(t)
-	defer c.Done()
 
 	registry := "localhost:8084"
 	broker := "hans:2000"
@@ -813,7 +816,6 @@ func TestConsumeParseArgsUsesEnvVar(t *testing.T) {
 // brokers default to localhost:9092
 func TestConsumeParseArgsDefault(t *testing.T) {
 	c := qt.New(t)
-	defer c.Done()
 
 	c.Setenv(ENV_BROKERS, "")
 	c.Setenv(ENV_REGISTRY, "")
@@ -827,7 +829,6 @@ func TestConsumeParseArgsDefault(t *testing.T) {
 
 func TestConsumeParseArgsFlagsOverrideEnv(t *testing.T) {
 	c := qt.New(t)
-	defer c.Done()
 
 	registry := "localhost:8084"
 	broker := "hans:2000"
@@ -845,7 +846,6 @@ func TestConsumeParseArgsFlagsOverrideEnv(t *testing.T) {
 
 func TestConsumeAvroMessage(t *testing.T) {
 	c := qt.New(t)
-	defer c.Done()
 
 	type record struct {
 		A int
@@ -947,7 +947,7 @@ func newTestRegistry(c *qt.C) *testRegistry {
 		RetryStrategy: retry.Regular{},
 	})
 	c.Assert(err, qt.IsNil)
-	c.Defer(func() {
+	c.Cleanup(func() {
 		err := reg.registry.DeleteSubject(ctx, reg.sub)
 		c.Check(err, qt.IsNil)
 		if reg.srv != nil {
@@ -984,7 +984,7 @@ func (reg *testRegistry) fakeServerHandler(w http.ResponseWriter, r *http.Reques
 
 	w.Header().Set("Content-Type", "application/vnd.schemaregistry.v1+json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(body)
+	_, _ = w.Write(body)
 }
 
 // createAvroMessage is a helper to create Avro message.

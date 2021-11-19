@@ -77,8 +77,8 @@ func (cmd *adminCmd) addFlags(flags *flag.FlagSet) {
 
 func (cmd *adminCmd) environFlags() map[string]string {
 	return map[string]string{
-		"timeout": "KT_ADMIN_TIMEOUT",
-		"brokers": "KT_BROKERS",
+		"timeout": ENV_ADMIN_TIMEOUT,
+		"brokers": ENV_BROKERS,
 	}
 }
 
