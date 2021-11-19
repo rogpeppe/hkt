@@ -799,7 +799,6 @@ func (c tConsumer) HighWaterMarks() map[string]map[int32]int64 {
 
 func TestConsumeParseArgsUsesEnvVar(t *testing.T) {
 	c := qt.New(t)
-	defer c.Done()
 
 	registry := "localhost:8084"
 	broker := "hans:2000"
@@ -817,7 +816,6 @@ func TestConsumeParseArgsUsesEnvVar(t *testing.T) {
 // brokers default to localhost:9092
 func TestConsumeParseArgsDefault(t *testing.T) {
 	c := qt.New(t)
-	defer c.Done()
 
 	c.Setenv(ENV_BROKERS, "")
 	c.Setenv(ENV_REGISTRY, "")
@@ -831,7 +829,6 @@ func TestConsumeParseArgsDefault(t *testing.T) {
 
 func TestConsumeParseArgsFlagsOverrideEnv(t *testing.T) {
 	c := qt.New(t)
-	defer c.Done()
 
 	registry := "localhost:8084"
 	broker := "hans:2000"
@@ -849,7 +846,6 @@ func TestConsumeParseArgsFlagsOverrideEnv(t *testing.T) {
 
 func TestConsumeAvroMessage(t *testing.T) {
 	c := qt.New(t)
-	defer c.Done()
 
 	type record struct {
 		A int
@@ -951,7 +947,7 @@ func newTestRegistry(c *qt.C) *testRegistry {
 		RetryStrategy: retry.Regular{},
 	})
 	c.Assert(err, qt.IsNil)
-	c.Defer(func() {
+	c.Cleanup(func() {
 		err := reg.registry.DeleteSubject(ctx, reg.sub)
 		c.Check(err, qt.IsNil)
 		if reg.srv != nil {

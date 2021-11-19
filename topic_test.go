@@ -8,7 +8,6 @@ import (
 
 func TestTopicParseArgsUsesEnvVar(t *testing.T) {
 	c := qt.New(t)
-	defer c.Done()
 
 	c.Setenv(ENV_BROKERS, "hans:2000")
 
@@ -21,7 +20,6 @@ func TestTopicParseArgsUsesEnvVar(t *testing.T) {
 // brokers default to localhost:9092
 func TestTopicParseArgsDefault(t *testing.T) {
 	c := qt.New(t)
-	defer c.Done()
 
 	c.Setenv(ENV_BROKERS, "")
 
@@ -33,7 +31,6 @@ func TestTopicParseArgsDefault(t *testing.T) {
 
 func TestTopicParseArgsFlagsOverrideEnv(t *testing.T) {
 	c := qt.New(t)
-	defer c.Done()
 
 	// command line arg wins
 	c.Setenv(ENV_BROKERS, "BLABB")
