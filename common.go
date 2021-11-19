@@ -193,41 +193,6 @@ func sanitizeUsername(u string) string {
 	return invalidClientIDCharactersRegExp.ReplaceAllString(u, "")
 }
 
-// setUpCerts takes the paths to a tls certificate, CA, and certificate key in
-// a PEM format and returns a constructed tls.Config object.
-func setUpCerts(certPath, caPath, keyPath string) (*tls.Config, error) {
-	if certPath == "" && caPath == "" && keyPath == "" {
-		return nil, nil
-	}
-
-	if certPath == "" || caPath == "" || keyPath == "" {
-		return nil, fmt.Errorf("certificate, CA and key path are required - got cert=%#v ca=%#v key=%#v", certPath, caPath, keyPath)
-	}
-
-	caString, err := ioutil.ReadFile(caPath)
-	if err != nil {
-		return nil, err
-	}
-
-	caPool := x509.NewCertPool()
-	ok := caPool.AppendCertsFromPEM(caString)
-	if !ok {
-		return nil, fmt.Errorf("unable to add cert at %s to certificate pool", caPath)
-	}
-
-	clientCert, err := tls.LoadX509KeyPair(certPath, keyPath)
-	if err != nil {
-		return nil, err
-	}
-
-	bundle := &tls.Config{
-		RootCAs:      caPool,
-		Certificates: []tls.Certificate{clientCert},
-	}
-	bundle.BuildNameToCertificate()
-	return bundle, nil
-}
-
 // setFlagsFromEnv sets unset flags in fs from environment
 // variables as specified by the flags map, which maps
 // from flag name to the environment variable for that name.
