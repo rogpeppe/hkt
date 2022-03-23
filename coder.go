@@ -173,6 +173,10 @@ func (c *coder) encoderForType(keyOrValue, typ string) (func([]byte) (json.RawMe
 		}
 	case "avro":
 		return c.encodeAvro, nil
+	case "none":
+		return func([]byte) (json.RawMessage, error) {
+			return nil, nil
+		}, nil
 	default:
 		return nil, fmt.Errorf(`unsupported decoder %#v, only json, string, hex, base64 and avro are supported`, typ)
 	}

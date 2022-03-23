@@ -42,7 +42,7 @@ type consumedMessage struct {
 	Partition int32           `json:"partition"`
 	Offset    int64           `json:"offset"`
 	Key       json.RawMessage `json:"key,omitempty"`
-	Value     json.RawMessage `json:"value"`
+	Value     json.RawMessage `json:"value,omitempty"`
 	Time      *time.Time      `json:"time,omitempty"`
 }
 
@@ -56,7 +56,7 @@ func (cmd *consumeCmd) addFlags(flags *flag.FlagSet) {
 	flags.StringVar(&cmd.keyStr, "key", "", "Print only messages with this key. Note: this relies on the producer using one of the partitioning algorithms specified with the -partitioners argument")
 	flags.BoolVar(&cmd.pretty, "pretty", true, "Control output pretty printing.")
 	flags.BoolVar(&cmd.follow, "f", false, "Follow topic by waiting new messages (default is to stop at end of topic)")
-	flags.StringVar(&cmd.valueCodecType, "valuecodec", "json", "Present message value as (json|string|hex|base64|avro), defaults to json.")
+	flags.StringVar(&cmd.valueCodecType, "valuecodec", "json", "Present message value as (json|string|hex|base64|avro|none), defaults to json.")
 	flags.StringVar(&cmd.keyCodecType, "keycodec", "string", "Present message key as (string|hex|base64), defaults to string.")
 
 	flags.Usage = func() {
