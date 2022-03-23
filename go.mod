@@ -1,4 +1,4 @@
-module github.com/heetch/hkt
+module github.com/rogpeppe/hkt
 
 require (
 	github.com/Shopify/sarama v1.29.1
